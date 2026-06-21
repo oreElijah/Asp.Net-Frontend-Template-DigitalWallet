@@ -1,0 +1,41 @@
+# Build output
+**/bin/
+**/obj/
+
+# Rider / ReSharper
+.idea/
+*.sln.iml
+_ReSharper*/
+*.[Rr]e[Ss]harper
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# VS Code
+.vscode/
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+
+# Logs
+*.log
+
+# Local environment and secrets
+.env
+.env.*
+**/appsettings.json
+**/appsettings.Development.json
+**/appsettings.Development.local.json
+**/appsettings.Local.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+/Uploads.

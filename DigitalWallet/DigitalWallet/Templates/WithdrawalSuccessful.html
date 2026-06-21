@@ -1,0 +1,96 @@
+﻿<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Withdrawal Successful</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f7;
+            color: #333;
+            padding: 20px;
+        }
+
+        ```
+        .container {
+            background-color: #ffffff;
+            max-width: 600px;
+            margin: auto;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .success {
+            color: #28a745;
+        }
+
+        .details {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #999;
+            margin-top: 40px;
+        }
+    </style>
+    ```
+
+</head>
+<body>
+
+    ```
+    <div class="container">
+
+        <h2 class="success">Withdrawal Successful</h2>
+
+        <p>Hello {{name}},</p>
+
+        <p>
+            Your withdrawal request has been processed successfully and the funds have been sent to your bank account.
+        </p>
+
+        <div class="details">
+            <strong>Transaction ID:</strong> {{id}} <br />
+            <strong>Wallet Number:</strong> {{WalletNumber}} <br />
+            <strong>Amount Withdrawn:</strong> ₦{{amount}} <br />
+            <strong>Reference:</strong> {{reference}} <br />
+            <strong>Status:</strong> {{status}} <br /><br />
+
+            <strong>Bank Name:</strong> {{BankName}} <br />
+            <strong>Account Name:</strong> {{AccountName}} <br />
+            <strong>Account Number:</strong> {{AccountNumber}}
+        </div>
+
+        <p>
+            Depending on your bank, the funds may take a few moments to reflect in your account.
+        </p>
+
+        <p>
+            If you did not authorize this withdrawal, please contact support immediately.
+        </p>
+
+        <p>
+            Thank you for using Campus Pay.
+        </p>
+
+        <p>
+            Best regards,<br />
+            Campus Pay Team
+        </p>
+
+    </div>
+
+    <div class="footer">
+        &copy; 2026 Campus Pay. All rights reserved.
+    </div>
+    ```
+
+</body>
+</html>

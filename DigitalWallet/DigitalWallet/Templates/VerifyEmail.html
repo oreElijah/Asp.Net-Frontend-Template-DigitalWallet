@@ -1,0 +1,68 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Random_guyy_project Notification</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f7;
+            color: #333;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: #ffffff;
+            max-width: 600px;
+            margin: auto;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #999;
+            margin-top: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 style="color: #007BFF;">Amala Place</h1>
+        <h2>Verify Email</h2>
+
+    </div>
+    <h2>Hello {{name}},</h2>
+
+    <p>
+        Thank you for creating an account with us. Your wallet number is <B>{{wallet_number}}</B>.
+        To complete your registration, please confirm your email address by clicking the button
+        below.
+    </p>
+
+    <a href="{{verification_link}}"
+       style="background-color: #007BFF; color: white; padding: 12px 24px; border-radius: 5px; text-decoration: none; display: inline-block;">
+        Verify Email
+    </a>
+
+
+    <p>
+        If the button above does not work, copy and paste the link below into your browser:
+    </p>
+
+    <p>{{verification_link}}</p>
+
+    <p>
+        If you did not create this account, you can safely ignore this email.
+    </p>
+
+    <p>
+        Best regards,<br />
+    </p>
+    <div class="footer">
+        &copy; 2026 Campus Pay. All rights reserved.
+    </div>
+</body>
+</html>
