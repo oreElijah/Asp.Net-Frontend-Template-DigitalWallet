@@ -184,22 +184,6 @@ namespace DigitalWalletApi.Controllers
             }
 
             [ServiceFilter(typeof(LogActionFilter))]
-            [HttpPost("Lock/Wallet")]
-            [Authorize(Roles = "SchoolAdmin")]
-            public async Task<IActionResult> LockWallet([FromQuery] string walletNumber)
-            {
-                _logger.LogInformation("Received request to lock wallet with number: {WalletNumber}", walletNumber);
-                var result = await _walletService.LockWalletAsync(walletNumber);
-                if (!result.Succeeded)
-                {
-                    _logger.LogWarning("Failed to lock wallet with number: {WalletNumber}", walletNumber);
-                    return BadRequest("Failed to lock wallet.");
-                }
-                _logger.LogInformation("Wallet with number: {WalletNumber} locked successfully", walletNumber);
-                return Ok("Wallet locked successfully");
-            }
-
-            [ServiceFilter(typeof(LogActionFilter))]
             [HttpGet("banks")]
             [AllowAnonymous]
             public async Task<IActionResult> GetBanks()

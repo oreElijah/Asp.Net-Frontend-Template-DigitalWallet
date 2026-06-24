@@ -46,7 +46,7 @@ namespace DigitalWalletApi.Controllers
         }
 
         [ServiceFilter(typeof(LogActionFilter))]
-        [HttpGet("Search/WalletNumber}")]
+        [HttpPost("Search/WalletNumber")]
         [Authorize]
         public async Task<IActionResult> GetWalletByWalletNumber([FromBody] string walletNumber)
         {

@@ -68,6 +68,9 @@ namespace DigitalWalletInfrastructure.Repositories
             
             if (!paymentResponse.Succeeded)
             {
+                _logger.LogWarning("Failed to initialize deposit for transaction ID {TransactionId} and wallet number {WalletNumber}", transaction.Id, wallet.WalletNumber);
+                transaction.Status = TransactionStatus.Failed;
+                await _context.SaveChangesAsync();
                 return new AppResponse<DepositResponseDto>
                 {
                     Succeeded = false,
@@ -297,6 +300,9 @@ namespace DigitalWalletInfrastructure.Repositories
 
             if (!paymentResponse.Succeeded)
             {
+                transaction.Status = TransactionStatus.Failed;
+                await _context.SaveChangesAsync();
+                
                 return new AppResponse<TransactionDto>
                 {
                     Succeeded = false,

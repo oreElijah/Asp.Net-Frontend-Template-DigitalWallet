@@ -4,6 +4,7 @@ using DigitalWalletApplication.Features.Transaction.Commands;
 using DigitalWalletApplication.Features.Transaction.Queries;
 using DigitalWalletCore.Dtos.Transaction;
 using DigitalWalletCore.Interfaces;
+using DigitalWalletCore.Dtos.Payment;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
