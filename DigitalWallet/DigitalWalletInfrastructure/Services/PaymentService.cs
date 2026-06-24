@@ -11,8 +11,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Caching.Distributed;
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -25,10 +27,11 @@ namespace DigitalWalletInfrastructure.Services
         private readonly ApplicationDbContext _context;
         private readonly IEmailService _emailService;
         private readonly IConfiguration _config;
+        private readonly IDistributedCache _cache;
         private readonly string _secretKey;
         private readonly ILogger<PaymentService> _logger;
 
-        public PaymentService(HttpClient httpClient, ApplicationDbContext context, IOptions<PaystackOptions> settings, IEmailService emailService, IConfiguration config, ILogger<PaymentService> logger)
+        public PaymentService(HttpClient httpClient, ApplicationDbContext context, IOptions<PaystackOptions> settings, IEmailService emailService, IConfiguration config, ILogger<PaymentService> logger, IDistributedCache cache)
         {
             _httpClient = httpClient;
             _context = context;
@@ -36,6 +39,7 @@ namespace DigitalWalletInfrastructure.Services
             _emailService = emailService;
             _logger = logger;
             _config = config;
+            _cache = cache;
         }
 
         public async Task<AppResponse<InitializePaymentResponseDto>> InitializeDepositAsync(Guid TransactionId, string walletNumber)
@@ -214,6 +218,7 @@ namespace DigitalWalletInfrastructure.Services
             var transaction = await _context.Transaction
             .Include(x => x.SenderWallet)
             .ThenInclude(x => x.User)
+            .ThenInclude(x => x.Merchant)
             .FirstOrDefaultAsync(x =>
             x.Id == TransactionId);
 
@@ -294,11 +299,21 @@ namespace DigitalWalletInfrastructure.Services
                 var response = await _httpClient.PostAsync(
                     _config["Paystack:Transfer"],
                     content);
-
-                response.EnsureSuccessStatusCode();
-
+                _logger.LogInformation("Received response from Paystack transfer API for TransactionId: {TransactionId} with status code: {StatusCode}", transaction.Id, response.StatusCode);
                 var body = await response.Content.ReadAsStringAsync();
 
+                _logger.LogInformation("Paystack Response: {Body}", body);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogError("Paystack Error: {Body}", body);
+
+                    return new AppResponse<InitializePaymentResponseDto>
+                    {
+                        Succeeded = false,
+                        Message = body
+                    };
+                }
                 var transferReference =
                     JsonDocument.Parse(body)
                     .RootElement
@@ -590,17 +605,73 @@ namespace DigitalWalletInfrastructure.Services
 
         public async Task<string> ResolveAccountAsync(string accountNumber, string bankCode)
         {
+            var cacheKey = $"resolve_{accountNumber}_{bankCode}";
+            var cached = await _cache.GetStringAsync(cacheKey);
+
+            if (!string.IsNullOrEmpty(cached))
+            {
+                _logger.LogInformation("Account name found in cache");
+                var SerializedAccountName = JsonSerializer.Deserialize<string>(cached);
+
+                if (SerializedAccountName == null)
+                {
+                    _logger.LogWarning("Cached account name is null for account number: {AccountNumber} and bank code: {BankCode}", accountNumber, bankCode);
+                    throw new ValidationException("Cached account name is null. Please try again.");
+                }
+                
+                return SerializedAccountName;
+            }
             _httpClient.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue(
                     "Bearer",
                     _secretKey);
 
+            var url = $"{_config["Paystack:Resolve_Account"]}{accountNumber}&bank_code={bankCode}";
+
+            _logger.LogInformation("Resolve URL: {Url}", url);
+            _logger.LogInformation("Resolve Account Config Value: {Value}", _config["Paystack:Resolve_Account"]);
             var response = await _httpClient.GetAsync(
                 $"{_config["Paystack:Resolve_Account"]}{accountNumber}&bank_code={bankCode}");
 
-            response.EnsureSuccessStatusCode();
-
             var body = await response.Content.ReadAsStringAsync();
+
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                string resetSeconds = "Unknown";
+
+                foreach (var header in response.Headers)
+                {
+                    _logger.LogInformation("Found Header: {Key} = {Value}", header.Key, string.Join(", ", header.Value));
+                }
+
+                var targetHeader = response.Headers
+                .FirstOrDefault(h => h.Key.Equals("x-ratelimit-reset", StringComparison.OrdinalIgnoreCase));
+
+                if (targetHeader.Value != null)
+                {
+                    resetSeconds = targetHeader.Value.FirstOrDefault() ?? "Unknown";
+                }
+                // 2. Secondary fallback check just in case it leaks into Content headers
+                else if (response.Content?.Headers != null)
+                {
+                    var contentHeader = response.Content.Headers
+                        .FirstOrDefault(h => h.Key.Equals("x-ratelimit-reset", StringComparison.OrdinalIgnoreCase));
+
+                    if (contentHeader.Value != null)
+                    {
+                        resetSeconds = contentHeader.Value.FirstOrDefault() ?? "Unknown";
+                    }
+                }
+
+                _logger.LogWarning(
+                    "Paystack rate limit hit for {AccountNumber}. Cooldown period: {ResetSeconds} seconds.",
+                    accountNumber, resetSeconds);
+
+                throw new ValidationException(
+                    $"Paystack rate limit exceeded. Please retry in {resetSeconds} seconds.");
+            }
+
+            response.EnsureSuccessStatusCode();
 
             var root = JsonDocument.Parse(body).RootElement;
 
@@ -610,16 +681,47 @@ namespace DigitalWalletInfrastructure.Services
                 throw new ValidationException("Account resolution failed. Please check the account number and bank code and try again.");
             }
 
-            return root.GetProperty("data").GetProperty("account_name").GetString();
+            var options = new DistributedCacheEntryOptions()
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(12)
+            };
+
+            var accountName = root.GetProperty("data").GetProperty("account_name").GetString();
+            
+            var serialized = JsonSerializer.Serialize(accountName);
+
+            await _cache.SetStringAsync(cacheKey, serialized, options);
+            _logger.LogInformation("Account name for {AccountNumber} retrieved.", accountNumber);
+
+            return accountName;
         }
 
         public async Task<string> CreateTransferRecipientAsync(string accountName, string accountNumber, string bankCode)
         {
+             var cacheKey = $"TransferRecipient_{accountName}_{accountNumber}_{bankCode}";
+            var cached = await _cache.GetStringAsync(cacheKey);
+
+            if (!string.IsNullOrEmpty(cached))
+            {
+                _logger.LogInformation("Account name found in cache for creating transfer recipient");
+                var SerializedTrfRecipient = JsonSerializer.Deserialize<string>(cached);
+
+                if (SerializedTrfRecipient == null)
+                {
+                    _logger.LogWarning("Cached transfer recipient is null for account number: {AccountNumber} and bank code: {BankCode} when creating transfer recipient", accountNumber, bankCode);
+                    throw new ValidationException("Cached transfer recipient is null. Please try again.");
+                }
+
+                return SerializedTrfRecipient;
+            }
+            
+            _logger.LogInformation("Creating transfer recipient with account name: {AccountName}, account number: {AccountNumber}, bank code: {BankCode}", accountName, accountNumber, bankCode);
             _httpClient.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue(
                     "Bearer",
                     _secretKey);
 
+            _logger.LogInformation("Preparing payload for creating transfer recipient with account name: {AccountName}, account number: {AccountNumber}, bank code: {BankCode}", accountName, accountNumber, bankCode);
             var payload = new
             {
                 type = "nuban",
@@ -629,6 +731,7 @@ namespace DigitalWalletInfrastructure.Services
                 currency = "NGN"
             };
 
+            _logger.LogInformation("Payload prepared for creating transfer recipient: {Payload}", JsonSerializer.Serialize(payload));
             var json = JsonSerializer.Serialize(payload);
 
             var content = new StringContent(
@@ -638,9 +741,30 @@ namespace DigitalWalletInfrastructure.Services
 
             var response = await _httpClient.PostAsync(_config["Paystack:TransferRecipient"], content);
 
-            response.EnsureSuccessStatusCode();
-
             var body = await response.Content.ReadAsStringAsync();
+
+            _logger.LogInformation(
+                "Paystack Response: {Body}",
+                body);
+
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                string resetSeconds = "unknown";
+
+                if (response.Headers.TryGetValues("x-ratelimit-reset", out var values))
+                {
+                    resetSeconds = values.FirstOrDefault() ?? "unknown";
+                }
+
+                _logger.LogWarning(
+                    "Paystack rate limit hit for {AccountName}. Cooldown period: {ResetSeconds} seconds.",
+                    accountName, resetSeconds);
+
+                throw new ValidationException(
+                    $"Paystack rate limit exceeded. Please retry in {resetSeconds} seconds.");
+            }
+
+            response.EnsureSuccessStatusCode();
 
             var root = JsonDocument.Parse(body).RootElement;
 
@@ -650,7 +774,19 @@ namespace DigitalWalletInfrastructure.Services
                 throw new ValidationException("Transfer recipient creation failed. Please check the account details and try again.");
             }
 
-            return root.GetProperty("data").GetProperty("recipient_code").GetString();
+            var options = new DistributedCacheEntryOptions()
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(12)
+            };
+
+            var trfRecipient = root.GetProperty("data").GetProperty("recipient_code").GetString();
+
+            var serialized = JsonSerializer.Serialize(trfRecipient);
+
+            await _cache.SetStringAsync(cacheKey, serialized, options);
+            _logger.LogInformation("Transfer recipient code for {AccountNumber} retrieved.", accountNumber);
+
+            return trfRecipient;
         }
 
         public async Task<string> GetBanksAsync()
@@ -659,9 +795,10 @@ namespace DigitalWalletInfrastructure.Services
                 new AuthenticationHeaderValue(
                     "Bearer",
                     _secretKey);
-
+            _logger.LogInformation("Getting banks list from Paystack");
             var response =
-                await _httpClient.GetAsync(_config["Paystack:GetBanks"]);
+                await _httpClient.GetAsync(_config["Paystack:Get_Banks"]);
+            _logger.LogInformation("Banks response received");
 
             response.EnsureSuccessStatusCode();
 
@@ -670,6 +807,23 @@ namespace DigitalWalletInfrastructure.Services
 
         public async Task<string?> GetBankNameByCodeAsync(string bankCode)
         {
+            var cacheKey = $"Bank_{bankCode}";
+            var cached = await _cache.GetStringAsync(cacheKey);
+
+            if (!string.IsNullOrEmpty(cached))
+            {
+                _logger.LogInformation("Bank name found in cache for bank code: {BankCode}", bankCode);
+                var SerializedTrfRecipient = JsonSerializer.Deserialize<string>(cached);
+
+                if (SerializedTrfRecipient == null)
+                {
+                    _logger.LogWarning("Cached bank name is null for bank code: {BankCode} when creating transfer recipient", bankCode);
+                    throw new ValidationException("Cached bank name is null. Please try again.");
+                }
+
+                return SerializedTrfRecipient;
+            }
+
             var response = await GetBanksAsync();
 
             var root = JsonDocument.Parse(response);
@@ -682,7 +836,16 @@ namespace DigitalWalletInfrastructure.Services
             {
                 if (bank.GetProperty("code").GetString() == bankCode)
                 {
-                    return bank.GetProperty("name").GetString();
+                    var options = new DistributedCacheEntryOptions()
+                    {
+                        AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(7)
+                    };
+
+                    var name = bank.GetProperty("name").GetString();
+                    _logger.LogInformation("Found bank. Code: {Code}, Name: {Name}", bankCode, name);
+                    
+                    await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(name), options);
+                    return name;
                 }
             }
 

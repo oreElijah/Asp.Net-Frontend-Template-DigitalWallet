@@ -24,13 +24,13 @@ namespace DigitalWalletCore.Entities
 
         public Guid? SenderWalletId { get; set; }
 
-        public Wallet SenderWallet { get; set; }
+        public Wallet? SenderWallet { get; set; }
 
         public string ReceiverWalletNumber { get; set; } = string.Empty;
 
         public Guid? ReceiverWalletId { get; set; }
 
-        public Wallet ReceiverWallet { get; set; }
+        public Wallet? ReceiverWallet { get; set; }
 
         public DateTime CreatedAt { get; set; }
     }

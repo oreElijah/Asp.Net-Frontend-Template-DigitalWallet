@@ -4,6 +4,8 @@ using DigitalWalletCore;
 using DigitalWalletInfrastructure;
 using DigitalWalletApi.Filter;
 using Microsoft.AspNetCore.Mvc;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Amazon.S3;
 
 namespace DigitalWalletApi
@@ -61,6 +63,17 @@ namespace DigitalWalletApi
                 });
             });
 
+            services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = configuration["Redis:Configuration"];
+                options.InstanceName = configuration["Redis:InstanceName"];
+            });
+
+            services.AddHangfire(
+                config => config.UsePostgreSqlStorage(configuration.GetConnectionString("DefaultConnection")) 
+            );
+
+            services.AddHangfireServer();
             services.AddScoped<LogActionFilter>();
 
             return services;

@@ -7,6 +7,7 @@ namespace DigitalWalletApi.Controllers
     using DigitalWalletCore.Dtos.User;
     using DigitalWalletCore.Entities;
     using DigitalWalletCore.Interfaces;
+    using DigitalWalletInfrastructure.Data;
     using DigitalWalletInfrastructure.Mapper;
     using global::DigitalWalletApi.Extensions;
     using global::DigitalWalletApi.Filter;
@@ -17,6 +18,7 @@ namespace DigitalWalletApi.Controllers
     using Microsoft.AspNetCore.Http;
     using Microsoft.AspNetCore.Identity;
     using Microsoft.AspNetCore.Mvc;
+    using Microsoft.EntityFrameworkCore;
 
     namespace DigitalWalletApi.Controllers
     {
@@ -34,13 +36,15 @@ namespace DigitalWalletApi.Controllers
             private readonly ISchoolService _schoolService;
             private readonly IWebHostEnvironment _env;
             private readonly ILogger<SchoolAdminController> _logger;
+            private readonly ApplicationDbContext _context;
 
-            public SchoolAdminController(UserManager<AppUser> userManager, IAuthService authService, IWalletService walletService, IEmailService emailService, ISchoolService schoolService, IWebHostEnvironment env, ILogger<SchoolAdminController> logger, IPaymentService paystackService)
+            public SchoolAdminController(UserManager<AppUser> userManager, IAuthService authService, IWalletService walletService, IEmailService emailService, ISchoolService schoolService, IWebHostEnvironment env, ILogger<SchoolAdminController> logger, IPaymentService paystackService, ApplicationDbContext context)
             {
                 _userManager = userManager;
                 _authService = authService;
                 _walletService = walletService;
                 _emailService = emailService;
+                _context = context;
                 _schoolService = schoolService;
                 _paystackService = paystackService;
                 _logger = logger;
@@ -123,7 +127,7 @@ namespace DigitalWalletApi.Controllers
 
             [ServiceFilter(typeof(LogActionFilter))]
             [HttpPost("Create-SchoolAdmin")]
-            [Authorize(Roles = "Admin")]
+            [Authorize(Roles = "SchoolAdmin")]
             public async Task<IActionResult> CreateSchoolAdmin([FromBody] CreateSchoolAdminDto createSchoolAdminDto)
             {
                 _logger.LogInformation("Received request to create school admin for email: {Email}", createSchoolAdminDto.Email);
@@ -153,33 +157,19 @@ namespace DigitalWalletApi.Controllers
                 return Ok("Merchant approved successfully");
             }
 
-
-            [ServiceFilter(typeof(LogActionFilter))]
-            [HttpPost("logout")]
-            [Authorize]
-            public async Task<IActionResult> Logout()
-            {
-                _logger.LogInformation("Received logout request for user with ID: {UserId}", User.GetUserId());
-                var jti = User.GetJti();
-                if (string.IsNullOrWhiteSpace(jti))
-                {
-                    _logger.LogWarning("Logout request failed: Token jti is missing for user with ID: {UserId}", User.GetUserId());
-                    return BadRequest("Token jti is missing.");
-                }
-
-                await _authService.Logout(jti);
-
-                _logger.LogInformation("Clearing authentication cookies for user with ID: {UserId}", User.GetUserId());
-                return Ok("Logged out successfully");
-            }
-
             [ServiceFilter(typeof(LogActionFilter))]
             [HttpGet("profile")]
             [Authorize(Roles = "SchoolAdmin")]
             public async Task<IActionResult> GetStudentProfile()
             {
                 _logger.LogInformation("Received request to get student profile for user with ID: {UserId}", User.GetUserId());
-                var user = await _userManager.GetUserAsync(User);
+                var userId = User.GetUserId();
+
+                var user = await _context.Users
+                    .Include(x => x.Merchant)
+                    .Include(x => x.Wallet)
+                    .Include(x => x.School)
+                    .FirstOrDefaultAsync(x => x.Id == userId);
 
                 _logger.LogInformation("Attempting to retrieve student profile for user with ID: {UserId}", User.GetUserId());
                 if (user == null)

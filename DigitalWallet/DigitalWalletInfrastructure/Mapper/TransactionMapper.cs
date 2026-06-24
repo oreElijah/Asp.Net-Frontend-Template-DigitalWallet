@@ -27,6 +27,24 @@ namespace DigitalWalletInfrastructure.Mapper
             };
         }
 
+        public static TransactionDto ToTransactionResponseDto2(this Transaction transaction, Wallet receiverWallet, Wallet senderWallet)
+        {
+            return new TransactionDto
+            {
+                Id = transaction.Id,
+                Amount = transaction.Amount,
+                Reference = transaction.Reference,
+                ReceiverWalletName = receiverWallet?.User.FirstName + " " + transaction.ReceiverWallet?.User.LastName,
+                SenderWalletName = senderWallet?.User.FirstName + " " + transaction.SenderWallet?.User.LastName,
+                Type = transaction.Type,
+                Status = transaction.Status,
+                SenderWalletNumber = transaction.SenderWalletNumber,
+                ReceiverWalletNumber = transaction.ReceiverWalletNumber,
+                Description = transaction.Description,
+                CreatedAt = transaction.CreatedAt
+            };
+        }
+
         public static Transaction ToTransaction(this TransactionDto transactionDto, Guid senderWalletId, Guid receiverWalletId)
         {
             return new Transaction
@@ -76,7 +94,8 @@ namespace DigitalWalletInfrastructure.Mapper
                 Type = TransactionType.Deposit,
                 Status = status,
                 ReceiverWalletId = receiverWalletId,
-                SenderWalletId = Guid.Empty,
+                SenderWalletId = null,
+                SenderWalletNumber = "EXTERNAL",
                 Description = $"Deposit to wallet {WalletNumber}",
                 CreatedAt = DateTime.UtcNow,
             };
@@ -95,6 +114,7 @@ namespace DigitalWalletInfrastructure.Mapper
                 SenderWalletId = senderWalletId,
                 SenderWalletNumber = WalletNumber,
                 ReceiverWalletId = null,
+                ReceiverWalletNumber = "EXTERNAL",
 
                 Description = "Withdrawal to bank account",
 

@@ -57,8 +57,9 @@ namespace DigitalWalletInfrastructure.Mapper
                 Email = user.Email ?? string.Empty,
                 Firstname = user.FirstName ?? string.Empty,
                 Lastname = user.LastName ?? string.Empty,
-                MatricNumber= user.MatricNumber,
+                MatricNumber = user.MatricNumber,
                 SchoolCode = user.School.Code,
+                SchoolName = user.School.Name,
                 WalletNumber = user.Wallet.WalletNumber
             };
         }

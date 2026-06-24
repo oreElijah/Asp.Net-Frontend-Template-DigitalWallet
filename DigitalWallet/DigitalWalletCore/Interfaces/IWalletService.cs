@@ -15,7 +15,7 @@ namespace DigitalWalletCore.Interfaces
 
         public Task<AppResponse<WalletDto>> GetWalletById(Guid walletId, string userId);
 
-        public Task<AppResponse<WalletSearchDto>> GetWalletByWalletNumber(string walletNumber);
+        public Task<AppResponse<WalletSearchDto>> GetWalletByWalletNumber(string walletNumber, string userId);
 
         public Task<AppResponse<bool>> DeleteWalletById(Guid walletId, string userId);
 
@@ -23,7 +23,7 @@ namespace DigitalWalletCore.Interfaces
 
         public Task<AppResponse<WalletDto>> GetWalletByUserId(string userId);
 
-        public Task<AppResponse<bool>> LockWalletAsync(string walletNumber);
+        public Task<AppResponse<bool>> LockOrUnlockWalletAsync(string walletNumber);
 
         public Task<AppResponse<WalletResponseDto>> GetWalletDetailsById(Guid walletId, string userId);
     }

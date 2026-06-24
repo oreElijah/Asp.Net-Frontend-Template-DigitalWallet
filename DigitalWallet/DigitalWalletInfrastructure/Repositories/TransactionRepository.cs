@@ -65,6 +65,15 @@ namespace DigitalWalletInfrastructure.Repositories
             //Deposit From payment gateway to wallet logic would be here
             _logger.LogInformation("Initializing deposit with payment service for transaction ID {TransactionId} and wallet number {WalletNumber}", transaction.Id, wallet.WalletNumber);
             var paymentResponse = await _paymentService.InitializeDepositAsync(transaction.Id, wallet.WalletNumber);
+            
+            if (!paymentResponse.Succeeded)
+            {
+                return new AppResponse<DepositResponseDto>
+                {
+                    Succeeded = false,
+                    Message = paymentResponse.Message
+                };
+            }
 
             _logger.LogInformation("Creating deposit response for transaction ID {TransactionId} and wallet number {WalletNumber}", transaction.Id, wallet.WalletNumber);
             var DepositResponse = new DepositResponseDto
@@ -155,8 +164,13 @@ namespace DigitalWalletInfrastructure.Repositories
             try
             {
                 _logger.LogInformation("Starting Transfer process for user {UserId} with amount {amount} to WalletNumber {WalletNumber}", userId, transferDto.Amount, transferDto.ReceiverWalletNumber);
-                var senderWallet = await _context.Wallet.FirstOrDefaultAsync(sw => sw.UserId == userId);
-                var receiverWallet = await _context.Wallet.FirstOrDefaultAsync(rw => rw.WalletNumber == transferDto.ReceiverWalletNumber);
+                var senderWallet = await _context.Wallet
+                .Include(sw => sw.User)
+                .FirstOrDefaultAsync(sw => sw.UserId == userId);
+
+                var receiverWallet = await _context.Wallet
+                .Include(rw => rw.User)
+                .FirstOrDefaultAsync(rw => rw.WalletNumber == transferDto.ReceiverWalletNumber);
 
                 if(senderWallet==null || receiverWallet == null)
                 {
@@ -210,21 +224,27 @@ namespace DigitalWalletInfrastructure.Repositories
                 receiverWallet.ReceivedTransactions.Add(transaction);
 
                 await _context.SaveChangesAsync();
+
+                var TransferDto = transaction.ToTransactionResponseDto2(receiverWallet, senderWallet);
+
                 await dbTransaction.CommitAsync();
 
-
-                    var TransferDto = transaction.ToTransactionResponseDto();
-
-                    return new AppResponse<TransactionDto>
+                return new AppResponse<TransactionDto>
                 {
                     Succeeded = true,
                     Data = TransferDto,
                     Message = "Transfer Succeeded"
                 };
             }
-            catch
+            catch (Exception ex)
             {
-                await dbTransaction.RollbackAsync();
+                _logger.LogError(ex, "Transfer failed");
+
+                if (_context.Database.CurrentTransaction != null)
+                {
+                    await dbTransaction.RollbackAsync();
+                }
+
                 throw;
             }
         }
@@ -274,6 +294,15 @@ namespace DigitalWalletInfrastructure.Repositories
             _logger.LogInformation("Initializing Withdrawal for Transaction {TransactionId} and Wallet {WalletNumber}", transaction.Id, wallet.WalletNumber);
             //Withdraw from wallet to payment gateway logic would be here
             var paymentResponse = await _paymentService.InitializeWithdrawalAsync(transaction.Id, wallet.WalletNumber);
+
+            if (!paymentResponse.Succeeded)
+            {
+                return new AppResponse<TransactionDto>
+                {
+                    Succeeded = false,
+                    Message = paymentResponse.Message
+                };
+            }
 
             return new AppResponse<TransactionDto>
             {

@@ -44,6 +44,7 @@ namespace DigitalWalletInfrastructure.Mapper
                 BankName = user.Merchant.BankName ?? string.Empty,
                 IsApproved = user.Merchant.IsApproved,                
                 SchoolCode = user.School.Code,
+                SchoolName = user.School.Name,
                 WalletNumber = user.Wallet.WalletNumber
             };
         }

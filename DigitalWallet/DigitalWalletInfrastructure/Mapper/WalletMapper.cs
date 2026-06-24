@@ -44,7 +44,8 @@ namespace DigitalWalletInfrastructure.Mapper
             {
                WalletNumber = wallet.WalletNumber,
                FirstName = wallet.User.FirstName,
-               LastName = wallet.User.LastName
+               LastName = wallet.User.LastName,
+               SchoolCode = wallet.User.SchoolCode
             };
         }
 

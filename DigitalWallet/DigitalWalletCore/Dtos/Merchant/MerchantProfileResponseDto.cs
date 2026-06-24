@@ -16,9 +16,9 @@ namespace DigitalWalletCore.Dtos.Merchant
 
         public string SchoolCode { get; set; } = string.Empty;
 
-        public string Email { get; set; } = string.Empty;
+        public string SchoolName { get; set; } = string.Empty;
 
-        public string Message { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
 
         public string WalletNumber { get; set; }
 

@@ -128,9 +128,9 @@ namespace DigitalWalletInfrastructure.Services
             return response;
         }
 
-        public async Task<AppResponse<WalletSearchDto>> GetWalletByWalletNumber(string walletNumber)
+        public async Task<AppResponse<WalletSearchDto>> GetWalletByWalletNumber(string walletNumber, string userId)
         {
-            var response = await _walletRepo.GetWalletByWalletNumber(walletNumber);
+            var response = await _walletRepo.GetWalletByWalletNumber(walletNumber, userId);
 
             if (response == null)
             {
@@ -164,21 +164,21 @@ namespace DigitalWalletInfrastructure.Services
             return response;
         }
 
-        public async Task<AppResponse<bool>> LockWalletAsync(string walletNumber)
+        public async Task<AppResponse<bool>> LockOrUnlockWalletAsync(string walletNumber)
         {
-            var response = await _walletRepo.LockWalletAsync(walletNumber);
+            var response = await _walletRepo.LockOrUnlockWalletAsync(walletNumber);
 
             if (response == null)
             {
-                _logger.LogError("Failed to lock wallet with number {WalletNumber}", walletNumber);
+                _logger.LogError("Failed to lock or unlock wallet with number {WalletNumber}", walletNumber);
                 return new AppResponse<bool>()
                 {
                     Succeeded = false,
-                    Message = "Failed to lock wallet"
+                    Message = "Failed to lock or unlock wallet"
                 };
             }
 
-            _logger.LogInformation("Successfully locked wallet with number {WalletNumber}", walletNumber);
+            _logger.LogInformation("Successfully locked or unlocked wallet with number {WalletNumber}", walletNumber);
             return response;
         }
     }

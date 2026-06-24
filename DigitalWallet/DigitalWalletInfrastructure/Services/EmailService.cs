@@ -64,7 +64,7 @@ namespace DigitalWalletInfrastructure.Services
                 return;
             }
 
-            var templatePath = Path.Combine(_environment.ContentRootPath, "Template", "ForgotPassword.html");
+            var templatePath = Path.Combine(_environment.ContentRootPath, "Templates", "ForgotPassword.html");
             var html = await File.ReadAllTextAsync(templatePath);
             html = html.Replace("{{name}}", userName);
 
@@ -110,7 +110,7 @@ namespace DigitalWalletInfrastructure.Services
             var BrevoUrl = _configuration["BrevoUrl"];
             var apiKey = _configuration["BREVO_API_KEY"];
             var fromEmail = _configuration["Email:From"];
-            var fromName = _configuration["Email:FromName"] ?? "Amala Place";
+            var fromName = _configuration["Email:FromName"] ?? "Campus Pay";
             var baseUrl = _configuration["App:BaseUrl"];
 
             if (string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(fromEmail))
@@ -119,7 +119,7 @@ namespace DigitalWalletInfrastructure.Services
                 return;
             }
 
-            var templatePath = Path.Combine(_environment.ContentRootPath, "Template", "VerifyEmail.html");
+            var templatePath = Path.Combine(_environment.ContentRootPath, "Templates", "VerifyEmail.html");
             var html = await File.ReadAllTextAsync(templatePath);
             html = html.Replace("{{name}}", firstName);
 
@@ -184,7 +184,7 @@ namespace DigitalWalletInfrastructure.Services
             var fromEmail = _configuration["Email:From"];
             var fromName = _configuration["Email:FromName"] ?? "Campus Pay";
 
-            var templatePath = Path.Combine(_environment.ContentRootPath, "Template", "DepositSuccessful.html");
+            var templatePath = Path.Combine(_environment.ContentRootPath, "Templates", "DepositSuccessful.html");
 
             var html = await File.ReadAllTextAsync(templatePath);
 
@@ -253,7 +253,7 @@ namespace DigitalWalletInfrastructure.Services
             var fromEmail = _configuration["Email:From"];
             var fromName = _configuration["Email:FromName"] ?? "Campus Pay";
 
-            var templatePath = Path.Combine(_environment.ContentRootPath, "Template", "WithdrawalSuccessful.html");
+            var templatePath = Path.Combine(_environment.ContentRootPath, "Templates", "WithdrawalSuccessful.html");
 
             var html = await File.ReadAllTextAsync(templatePath);
 

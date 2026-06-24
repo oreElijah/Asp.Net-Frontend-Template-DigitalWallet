@@ -216,9 +216,11 @@ namespace DigitalWalletInfrastructure.Repositories
             });
         }
 
-        public async Task<AppResponse<WalletSearchDto>> GetWalletByWalletNumber(string walletNumber)
+        public async Task<AppResponse<WalletSearchDto>> GetWalletByWalletNumber(string walletNumber, string userId)
         {
             var wallet = await WalletExistsByWalletNumber(walletNumber);
+            
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
 
             if (wallet == null)
             {
@@ -227,6 +229,26 @@ namespace DigitalWalletInfrastructure.Repositories
                 {
                     Succeeded = false,
                     Message = "Wallet not found"
+                };
+            }
+
+            if (user == null)
+            {
+                _logger.LogWarning("Attempted to retrieve wallet for user with ID: {UserId}, but the user was not found", userId);
+                return new AppResponse<WalletSearchDto>
+                {
+                    Succeeded = false,
+                    Message = "User not found"
+                };
+            }
+
+            if(wallet.Data.SchoolCode != user.SchoolCode)
+            {
+                _logger.LogWarning("Attempted to retrieve wallet with number: {WalletNumber}, but it does not belong to the user's school", walletNumber);
+                return new AppResponse<WalletSearchDto>
+                {
+                    Succeeded = false,
+                    Message = "Wallet does not belong to the user's school"
                 };
             }
 
@@ -266,7 +288,7 @@ namespace DigitalWalletInfrastructure.Repositories
             });
         }
 
-        public async Task<AppResponse<bool>> LockWalletAsync(string walletNumber)
+        public async Task<AppResponse<bool>> LockOrUnlockWalletAsync(string walletNumber)
         {
             _logger.LogInformation("Attempting to lock wallet with number: {WalletNumber}", walletNumber);
             var wallet = await _context.Wallet.FirstOrDefaultAsync(w => w.WalletNumber == walletNumber);
@@ -278,6 +300,21 @@ namespace DigitalWalletInfrastructure.Repositories
                     Succeeded = false,
                     Message = "Wallet not found"
                 };
+            }
+
+            if (wallet.IsLocked)
+            {
+                _logger.LogWarning("Attempting to unlock wallet with number: {WalletNumber}", walletNumber);
+                wallet.IsLocked = false;
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Unlocked wallet with number: {WalletNumber}", walletNumber);
+                return new AppResponse<bool>
+                {
+                    Succeeded = true,
+                    Message = "Wallet unlocked successfully"
+                };
+
             }
 
             _logger.LogInformation("Locking wallet with number: {WalletNumber}", walletNumber);
@@ -294,7 +331,9 @@ namespace DigitalWalletInfrastructure.Repositories
 
         public async Task<AppResponse<Wallet>> WalletExists(Guid walletId, string userId)
         {
-            var wallet = await _context.Wallet.FirstOrDefaultAsync(w => w.Id == walletId);
+            var wallet = await _context.Wallet
+                .Include(w => w.User)
+                .FirstOrDefaultAsync(w => w.Id == walletId);
 
             _logger.LogInformation("Checked existence of wallet with ID: {WalletId} for user with ID: {UserId}. Exists: {Exists}", walletId, userId, wallet != null);
 
@@ -328,7 +367,9 @@ namespace DigitalWalletInfrastructure.Repositories
 
         public async Task<AppResponse<WalletSearchDto>> WalletExistsByWalletNumber(string walletNumber)
         {
-            var wallet = await _context.Wallet.FirstOrDefaultAsync(w => w.WalletNumber == walletNumber);
+            var wallet = await _context.Wallet
+                .Include(w => w.User)
+                .FirstOrDefaultAsync(w => w.WalletNumber == walletNumber);
 
             if (wallet == null)
             {

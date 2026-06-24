@@ -19,17 +19,19 @@ namespace DigitalWalletApi.Controllers
     {
         private readonly ILogger<TransactionController> _logger;
         private readonly IWalletService _walletService;
+        private readonly IPaymentService _paymentService;
         private readonly ISender _sender;
 
-        public TransactionController(ILogger<TransactionController> logger, ISender sender, IWalletService walletService)
+        public TransactionController(ILogger<TransactionController> logger, ISender sender, IWalletService walletService, IPaymentService paymentService)
         {
             _logger = logger;
             _walletService = walletService;
+            _paymentService = paymentService;
             _sender = sender;
         }
 
         [ServiceFilter(typeof(LogActionFilter))]
-        [HttpGet("all")]
+        [HttpGet("history")]
         [Authorize]
         public async Task<IActionResult> GetAllTransactionsForUser()
         {
@@ -74,7 +76,7 @@ namespace DigitalWalletApi.Controllers
 
         [ServiceFilter(typeof(LogActionFilter))]
         [HttpPost("Transfer")]
-        [Authorize(Roles = "Student, Merchant")]
+        [Authorize(Roles = "Student")]
         public async Task<IActionResult> Transfer([FromBody] TransferDto request)
         {
             var userId = User.GetUserId();
@@ -85,5 +87,54 @@ namespace DigitalWalletApi.Controllers
             return Ok(result);
         }
 
+        [ServiceFilter(typeof(LogActionFilter))]
+        [ApiVersion("1.0")]
+        [Authorize]
+        [HttpGet("verify/Deposit/{reference}")]
+        public async Task<IActionResult> VerifyDeposit(string reference)
+        {
+            _logger.LogInformation("Reference received by controller: {Reference}", reference);
+            var result = await _paymentService.VerifyDepositAsync(reference);
+
+            return Ok(result);
+        }
+
+
+        [ServiceFilter(typeof(LogActionFilter))]
+        [ApiVersion("1.0")]
+        [Authorize]
+        [HttpGet("verify/Withdrawal/{reference}")]
+        public async Task<IActionResult> VerifyWithdrawal(string reference)
+        {
+            var result = await _paymentService.VerifyWithdrawalAsync(reference);
+
+            return Ok(result);
+        }
+
+        [ServiceFilter(typeof(LogActionFilter))]
+        [ApiVersion("1.0")]
+        [HttpPost("webhook/Deposit")]
+        public async Task<IActionResult> Webhook()
+        {
+            using var reader = new StreamReader(Request.Body);
+            var body = await reader.ReadToEndAsync();
+
+            await _paymentService.HandleWebhookForDepositAsync(body);
+
+            return Ok();
+        }
+
+        [ServiceFilter(typeof(LogActionFilter))]
+        [ApiVersion("1.0")]
+        [HttpPost("webhook/Withdrawal")]
+        public async Task<IActionResult> Webhook2()
+        {
+            using var reader = new StreamReader(Request.Body);
+            var body = await reader.ReadToEndAsync();
+
+            await _paymentService.HandleWebhookForWithdrawalAsync(body);
+
+            return Ok();
+        }
     }
 }
