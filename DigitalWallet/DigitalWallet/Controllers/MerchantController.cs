@@ -6,10 +6,12 @@ using DigitalWalletCore.Entities;
 using DigitalWalletCore.Interfaces;
 using DigitalWalletInfrastructure.Data;
 using DigitalWalletInfrastructure.Mapper;
+using DigitalWalletInfrastructure.Services;
 using Hangfire;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authorization;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -28,11 +30,13 @@ namespace DigitalWalletApi.Controllers
         private readonly IPaymentService _paystackService;
         private readonly IAuthService _authService;
         private readonly IWalletService _walletService;
+        private readonly IFileStorageService _fileStorageService;
+        private readonly IQRCodeService _qrCodeService;
         private readonly IEmailService _emailService;
         private readonly IWebHostEnvironment _env;
         private readonly ILogger<MerchantController> _logger;
 
-        public MerchantController(UserManager<AppUser> userManager, ApplicationDbContext context, IAuthService authService, IWalletService walletService, IEmailService emailService, IWebHostEnvironment env, ILogger<MerchantController> logger, IPaymentService paystackService)
+        public MerchantController(UserManager<AppUser> userManager, ApplicationDbContext context, IAuthService authService, IWalletService walletService, IEmailService emailService, IWebHostEnvironment env, ILogger<MerchantController> logger, IPaymentService paystackService, IFileStorageService fileStorageService, IQRCodeService qrCodeService)
         {
             _userManager = userManager;
             _context = context; 
@@ -40,6 +44,8 @@ namespace DigitalWalletApi.Controllers
             _walletService = walletService;
             _emailService = emailService;
             _paystackService = paystackService;
+            _fileStorageService = fileStorageService;
+            _qrCodeService = qrCodeService;
             _logger = logger;
             _env = env;
         }
@@ -47,7 +53,7 @@ namespace DigitalWalletApi.Controllers
         [ServiceFilter(typeof(LogActionFilter))]
         [HttpPost("register")]
         [AllowAnonymous]
-        public async Task<IActionResult> RegisterMerchant([FromBody] RegisterMerchantRequestDto registerRequestDto)
+        public async Task<IActionResult> RegisterMerchant([FromForm] RegisterMerchantRequestDto registerRequestDto)
         {
             _logger.LogInformation("Received merchant registration request for email: {Email}", registerRequestDto.Email);
             if (string.IsNullOrWhiteSpace(registerRequestDto.Email) || string.IsNullOrWhiteSpace(registerRequestDto.Password))
@@ -68,6 +74,13 @@ namespace DigitalWalletApi.Controllers
                 return BadRequest("Invalid bank account details");
             }
 
+            var profilePictureUrl = "";
+            if (registerRequestDto.ProfilePicture != null)
+            {
+                _logger.LogInformation("Uploading profile picture for merchant registration for email: {Email}", registerRequestDto.Email);
+                profilePictureUrl = await _fileStorageService.UploadFileAsync(registerRequestDto.ProfilePicture);
+            }
+
             _logger.LogInformation("Creating transfer recipient for account name: {AccountName}, account number: {AccountNumber}, and bank code: {BankCode} for merchant registration.", accountName, registerRequestDto.AccountNumber, registerRequestDto.BankCode);
             var recipientCode = await _paystackService.CreateTransferRecipientAsync(accountName, registerRequestDto.AccountNumber, registerRequestDto.BankCode);
 
@@ -80,6 +93,7 @@ namespace DigitalWalletApi.Controllers
                 FirstName = registerRequestDto.BusinessName,
                 LastName = registerRequestDto.BusinessName,
                 Email = registerRequestDto.Email,
+                ProfilePicture = profilePictureUrl,
                 SchoolCode = registerRequestDto.SchoolCode,
                 School = school,
                 UserName = $"{registerRequestDto.Email}",
@@ -122,6 +136,8 @@ namespace DigitalWalletApi.Controllers
             _logger.LogInformation("Assigning wallet to merchant user with email: {Email}", registerRequestDto.Email);
             user.Wallet = wallet.Data;
 
+            var base64 = _qrCodeService.GenerateQRCodeAsync(user.Wallet.WalletNumber.ToString()).Result;
+            user.Merchant.QRCodeString = base64;
             _logger.LogInformation("Generating email confirmation token for merchant user with email: {Email}", registerRequestDto.Email);
             var verifyToken = await _userManager.GenerateEmailConfirmationTokenAsync(user);
 
@@ -134,7 +150,7 @@ namespace DigitalWalletApi.Controllers
                    wallet.Data.WalletNumber));
 
             _logger.LogInformation("Merchant registration process completed successfully for email: {Email}", registerRequestDto.Email);
-            var responseDto = registerRequestDto.ToMerchantRegisterResponseDto(user.Merchant.Id, wallet.Data.WalletNumber, accountName, bankName, "User registered successfully, Check your mail to activate your account and get your Wallet Number.");
+            var responseDto = registerRequestDto.ToMerchantRegisterResponseDto(user.Merchant.Id, wallet.Data.WalletNumber, accountName, bankName, profilePictureUrl,"User registered successfully, Check your mail to activate your account and get your Wallet Number.");
             return Ok(responseDto);
         }
 
@@ -179,6 +195,13 @@ namespace DigitalWalletApi.Controllers
                 return BadRequest("User ID is missing.");
             }
 
+            var profilePictureUrl = "";
+            if (updateMerchantProfileDto.ProfilePicture != null)
+            {
+                _logger.LogInformation("Uploading profile picture for merchant registration for email");
+                profilePictureUrl = await _fileStorageService.UploadFileAsync(updateMerchantProfileDto.ProfilePicture) ?? null;
+            }
+
             _logger.LogInformation("Attempting to find user by ID: {UserId}", userId);
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
@@ -202,6 +225,7 @@ namespace DigitalWalletApi.Controllers
             user.Merchant.AccountNumber = updateMerchantProfileDto.AccountNumber ?? user.Merchant.AccountNumber;
             user.Merchant.BankCode = updateMerchantProfileDto.BankCode ?? user.Merchant.BankCode;
             user.Merchant.ShopLocation = updateMerchantProfileDto.ShopLocation ?? user.Merchant.ShopLocation;
+            user.ProfilePicture = !string.IsNullOrWhiteSpace(profilePictureUrl) ? profilePictureUrl : user.ProfilePicture;
 
             _logger.LogInformation("Attempting to update merchant profile for user with ID: {UserId}", userId);
             var result = await _userManager.UpdateAsync(user);
@@ -214,6 +238,43 @@ namespace DigitalWalletApi.Controllers
             _logger.LogInformation("Merchant profile updated successfully for user with ID: {UserId}", userId);
             var profileDto = user.ToMerchantProfileResponseDto(user.Merchant.Id);
             return Ok(profileDto);
+        }
+
+        [ServiceFilter(typeof(LogActionFilter))]
+        [HttpGet("View/qrcode")]
+        [Authorize(Roles = "Merchant")]
+        public IActionResult GenerateQr()
+        {
+            var UserId = User.GetUserId();
+            var user = _context.Users
+                .Include(x => x.Merchant)
+                .FirstOrDefault(x => x.Id == UserId);
+
+            var base64 = Convert.FromBase64String(user.Merchant.QRCodeString);
+
+            return Ok(base64);
+        }
+
+        [ServiceFilter(typeof(LogActionFilter))]
+        [HttpGet("qrcode")]
+        [Authorize(Roles = "Merchant")]
+        public async Task<IActionResult> DownloadQrCode()
+        {
+            var UserId = User.GetUserId();
+            var user = _context.Users
+                .Include(x => x.Merchant)
+                .Include(x => x.Wallet)
+                .FirstOrDefault(x => x.Id == UserId);
+
+            
+            var bytes = await _qrCodeService.DownloadQRCodeAsync(user.Merchant.BusinessName, user.Merchant.QRCodeString, user.Wallet.WalletNumber);
+
+            // var bytes = Convert.FromBase64String(user.Merchant.QRCodeString);
+
+            return File(
+                bytes,
+                "image/png",
+                "CampusPay-QRCode.png");
         }
     }
 }

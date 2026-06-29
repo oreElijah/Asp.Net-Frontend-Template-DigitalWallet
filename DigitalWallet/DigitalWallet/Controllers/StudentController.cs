@@ -34,10 +34,11 @@ namespace DigitalWalletApi.Controllers
             private readonly IWalletService _walletService;
             private readonly ApplicationDbContext _context;
             private readonly IEmailService _emailService;
+            private readonly IFileStorageService _fileStorageService;
             private readonly IWebHostEnvironment _env;
             private readonly ILogger<StudentController> _logger;
 
-            public StudentController(UserManager<AppUser> userManager, IAuthService authService, IWalletService walletService, IEmailService emailService, IWebHostEnvironment env, ILogger<StudentController> logger, IPaymentService paystackService, ApplicationDbContext context)
+            public StudentController(UserManager<AppUser> userManager, IAuthService authService, IWalletService walletService, IEmailService emailService, IFileStorageService fileStorageService, IWebHostEnvironment env, ILogger<StudentController> logger, IPaymentService paystackService, ApplicationDbContext context)
             {
                 _userManager = userManager;
                 _authService = authService;
@@ -45,6 +46,7 @@ namespace DigitalWalletApi.Controllers
                 _emailService = emailService;
                 _context = context;
                 _paystackService = paystackService;
+                _fileStorageService = fileStorageService;
                 _logger = logger;
                 _env = env;
             }
@@ -62,6 +64,13 @@ namespace DigitalWalletApi.Controllers
                     return BadRequest("Email and password are required.");
                 }
 
+                var profilePictureUrl = "";
+                if (registerDto.ProfilePicture != null)
+                {
+                    _logger.LogInformation("Uploading profile picture for student registration for email: {Email}", registerDto.Email);
+                    profilePictureUrl = await _fileStorageService.UploadFileAsync(registerDto.ProfilePicture);
+                }
+
                 _logger.LogInformation("Attempting to retrieve school with code: {SchoolCode} for registration.", registerDto.SchoolCode);
                 var school = await _authService.GetSchoolByCodeAsync(registerDto.SchoolCode);
 
@@ -74,6 +83,7 @@ namespace DigitalWalletApi.Controllers
                     FirstName = registerDto.Firstname,
                     LastName = registerDto.Lastname,
                     UserName = registerDto.Email,
+                    ProfilePicture = profilePictureUrl,
                     School = school
                 };
 
@@ -109,7 +119,7 @@ namespace DigitalWalletApi.Controllers
                        wallet.Data.WalletNumber));
 
                 _logger.LogInformation("Registration process completed successfully for email: {Email}", registerDto.Email);
-                var responseDto = registerDto.ToRegisterResponseDto("User registered successfully, Check your mail to activate your account and get your Wallet Number.", user.Id.ToString());
+                var responseDto = registerDto.ToRegisterResponseDto("User registered successfully, Check your mail to activate your account and get your Wallet Number.", user.Id.ToString(), profilePictureUrl);
                 return Ok(responseDto);
             }
 
@@ -153,6 +163,13 @@ namespace DigitalWalletApi.Controllers
                     return BadRequest("User ID is missing.");
                 }
 
+                var profilePictureUrl = "";
+                if (updateProfileDto.ProfilePicture != null)
+                {
+                    _logger.LogInformation("Uploading profile picture for student profile update for user with ID: {UserId}", userId);
+                    profilePictureUrl = await _fileStorageService.UploadFileAsync(updateProfileDto.ProfilePicture) ?? null;
+                }
+
                 _logger.LogInformation("Attempting to find user by ID: {UserId}", userId);
                 var user = await _userManager.FindByIdAsync(userId);
                 if (user == null)
@@ -164,6 +181,7 @@ namespace DigitalWalletApi.Controllers
                 _logger.LogInformation("Successfully retrieved user for ID: {UserId}", userId);
                 user.FirstName = updateProfileDto.Firstname ?? user.FirstName;
                 user.LastName = updateProfileDto.Lastname ?? user.LastName;
+                user.ProfilePicture = !string.IsNullOrWhiteSpace(profilePictureUrl) ? profilePictureUrl : user.ProfilePicture;
 
                 _logger.LogInformation("Attempting to update user profile for ID: {UserId}", userId);
                 var result = await _userManager.UpdateAsync(user);

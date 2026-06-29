@@ -144,7 +144,6 @@ namespace DigitalWalletInfrastructure
 
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IEmailService, EmailService>();
-            services.AddScoped<IFileStorageService, BackBlazeStorageService>();
             services.AddHttpClient<IPaymentService, PaymentService>();
             services.AddScoped<ISchoolService, SchoolService>();
             services.AddScoped<ISchoolRepository, SchoolRepository>();
@@ -152,6 +151,8 @@ namespace DigitalWalletInfrastructure
             services.AddScoped<ITransactionService, TransactionService>();
             services.AddScoped<IWalletRepository, WalletRepository>();
             services.AddScoped<IWalletService, WalletService>();
+            services.AddScoped<IFileStorageService, BackBlazeStorageService>();
+            services.AddScoped<IQRCodeService, QRCodeService>();
             return services;
         }
     }

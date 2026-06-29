@@ -27,6 +27,8 @@ namespace DigitalWalletCore.Entities
         public string BankName { get; set; } = string.Empty;
 
         public string TransferRecipientCode { get; set; } = string.Empty;
+        
+        public string QRCodeString { get; set; } = string.Empty;
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }

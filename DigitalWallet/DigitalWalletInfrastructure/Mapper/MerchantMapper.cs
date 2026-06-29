@@ -9,11 +9,12 @@ namespace DigitalWalletInfrastructure.Mapper
 {
     public static class MerchantMapper
     {
-        public static RegisterMerchantResponseDto ToMerchantRegisterResponseDto(this RegisterMerchantRequestDto registerRequestDto, Guid MerchantId, string WalletNumber, string AccountName, string BankName, string message)
+        public static RegisterMerchantResponseDto ToMerchantRegisterResponseDto(this RegisterMerchantRequestDto registerRequestDto, Guid MerchantId, string WalletNumber, string AccountName, string BankName, string ProfilePicture, string message)
         {
             return new RegisterMerchantResponseDto
             {
                 MerchantId = MerchantId,
+                ProfilePicture = ProfilePicture,
                 Firstname = registerRequestDto.BusinessName,
                 Lastname = registerRequestDto.BusinessName,
                 Email = registerRequestDto.Email,
@@ -34,6 +35,7 @@ namespace DigitalWalletInfrastructure.Mapper
             return new MerchantProfileResponseDto
             {
                 MerchantId = MerchantId,
+                ProfilePicture = user.ProfilePicture,
                 Email = user.Email ?? string.Empty,
                 Firstname = user.FirstName ?? string.Empty,
                 Lastname = user.LastName ?? string.Empty,

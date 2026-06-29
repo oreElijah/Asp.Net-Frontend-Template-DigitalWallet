@@ -8,11 +8,12 @@ namespace DigitalWalletInfrastructure.Mapper
 {
     public static class AccountMapper
     {
-        public static RegisterResponseDto ToRegisterResponseDto(this RegisterRequestDto registerRequestDto, string message, string userId)
+        public static RegisterResponseDto ToRegisterResponseDto(this RegisterRequestDto registerRequestDto, string message, string userId, string profilePicture)
         {
             return new RegisterResponseDto
             {
                 UserId = userId ?? string.Empty,
+                ProfilePicture = profilePicture,
                 Firstname = registerRequestDto.Firstname,
                 Lastname = registerRequestDto.Lastname,
                 MatricNumber = registerRequestDto.MatricNumber,
@@ -28,6 +29,7 @@ namespace DigitalWalletInfrastructure.Mapper
             return new LoginResponseDto
             {
                 Email =user.Email ?? string.Empty,
+                ProfilePicture = user.ProfilePicture ?? string.Empty,
                 Firstname = user.FirstName ?? string.Empty,
                 Lastname = user.LastName ?? string.Empty,
                 WalletNumber = loginRequestDto.WalletNumber,
@@ -54,6 +56,7 @@ namespace DigitalWalletInfrastructure.Mapper
             return new UserProfileResponseDto
             {
                 UserId = user.Id ?? string.Empty,
+                ProfilePicture = user.ProfilePicture ?? string.Empty,
                 Email = user.Email ?? string.Empty,
                 Firstname = user.FirstName ?? string.Empty,
                 Lastname = user.LastName ?? string.Empty,
@@ -68,6 +71,7 @@ namespace DigitalWalletInfrastructure.Mapper
         {
             return new AppUserDto
             {
+                ProfilePicture = user.ProfilePicture ?? string.Empty,
                 FirstName = user.FirstName ?? string.Empty,
                 LastName = user.LastName ?? string.Empty,
                 MatricNumber = user.MatricNumber,

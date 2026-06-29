@@ -11,34 +11,36 @@ namespace DigitalWalletInfrastructure.Services
 {
     public class BackBlazeStorageService : IFileStorageService
     {
-        private readonly IAmazonS3 _s3;
-        private readonly IConfiguration _config;
+        private readonly IAmazonS3 _amazonS3;
+        private readonly IConfiguration _configuration;
 
-        public BackBlazeStorageService(IAmazonS3 s3, IConfiguration config)
+        public BackBlazeStorageService(IAmazonS3 amazonS3, IConfiguration configuration)
         {
-            _s3 = s3;
-            _config = config;
+            _amazonS3 = amazonS3;
+            _configuration = configuration;
         }
 
         public async Task<string> UploadFileAsync(IFormFile file)
         {
-            var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
+            var fileName = $"{Guid.NewGuid()}_{file.FileName}";
 
             using var stream = file.OpenReadStream();
 
             var request = new PutObjectRequest
             {
-                BucketName = _config["Backblaze:BucketName"],
+                BucketName = _configuration["AWS:BucketName"],
                 Key = fileName,
                 InputStream = stream,
                 ContentType = file.ContentType
             };
 
-            await _s3.PutObjectAsync(request);
+            await _amazonS3.PutObjectAsync(request);
+            
+            var ReturnUrl = _configuration["Backblaze:ReturnUrl"];
 
-            var ReturnUrl = _config["Backblaze:ReturnUrl"];
+            var fileUrl = $"{ReturnUrl}/{fileName}";
 
-            return $"{ReturnUrl}/{fileName}";
+            return fileUrl;
         }
     }
 }

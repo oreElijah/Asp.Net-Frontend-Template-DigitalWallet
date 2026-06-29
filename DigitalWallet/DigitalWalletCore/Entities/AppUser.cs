@@ -1,8 +1,9 @@
 ﻿using Microsoft.AspNet.Identity.EntityFramework;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using System;
 using System.Collections.Generic;
 using System.Text;
-using Microsoft.AspNetCore.Identity;
 
 namespace DigitalWalletCore.Entities
 {
@@ -13,6 +14,8 @@ namespace DigitalWalletCore.Entities
         public string LastName { get; set; } = string.Empty;    
 
         public string? MatricNumber { get; set; } = string.Empty;
+
+        public string ProfilePicture { get; set; } = string.Empty;
 
         public string SchoolCode { get; set; } = string.Empty;
 

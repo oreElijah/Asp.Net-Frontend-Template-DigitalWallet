@@ -10,6 +10,8 @@ namespace DigitalWalletCore.Dtos.Merchant
     {
         public Guid MerchantId { get; set; }
 
+        public string ProfilePicture { get; set; } = string.Empty;
+
         public string Firstname { get; set; } = string.Empty;
 
         public string Lastname { get; set; } = string.Empty;

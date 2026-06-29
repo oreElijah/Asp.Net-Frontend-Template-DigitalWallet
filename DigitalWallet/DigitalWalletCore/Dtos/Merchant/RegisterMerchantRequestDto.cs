@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Text;
+using Microsoft.AspNetCore.Http;
 
 namespace DigitalWalletCore.Dtos.Merchant
 {
@@ -13,6 +14,8 @@ namespace DigitalWalletCore.Dtos.Merchant
 
         [Required]
         public string Password { get; set; }
+
+        public IFormFile ProfilePicture { get; set; }
 
         [Required]
         public string BusinessName { get; set; }
