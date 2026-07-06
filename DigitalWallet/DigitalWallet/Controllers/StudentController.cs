@@ -58,10 +58,10 @@ namespace DigitalWalletApi.Controllers
             public async Task<IActionResult> Register([FromBody] RegisterRequestDto registerDto)
             {
                 _logger.LogInformation("Received registration request for email: {Email}", registerDto.Email);
-                if (string.IsNullOrWhiteSpace(registerDto.Email) || string.IsNullOrWhiteSpace(registerDto.Password))
+                if (string.IsNullOrWhiteSpace(registerDto.Email) || string.IsNullOrWhiteSpace(registerDto.Password) || string.IsNullOrWhiteSpace(registerDto.Pin))
                 {
                     _logger.LogWarning("Registration request for email {Email} is missing required fields.", registerDto.Email);
-                    return BadRequest("Email and password are required.");
+                    return BadRequest("Email, password, and pin are required.");
                 }
 
                 var profilePictureUrl = "";
@@ -106,7 +106,7 @@ namespace DigitalWalletApi.Controllers
                 var verifyToken = await _userManager.GenerateEmailConfirmationTokenAsync(user);
 
                 _logger.LogInformation("Creating wallet for user with matric number: {MatricNumber}", user.MatricNumber);
-                var wallet = await _walletService.CreateStudentWallet(user.MatricNumber, user.Id);
+                var wallet = await _walletService.CreateStudentWallet(user.MatricNumber, user.Id, registerDto.Pin);
 
                 user.Wallet = wallet.Data;
 

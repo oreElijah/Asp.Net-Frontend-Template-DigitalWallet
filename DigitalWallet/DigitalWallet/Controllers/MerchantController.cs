@@ -56,10 +56,10 @@ namespace DigitalWalletApi.Controllers
         public async Task<IActionResult> RegisterMerchant([FromForm] RegisterMerchantRequestDto registerRequestDto)
         {
             _logger.LogInformation("Received merchant registration request for email: {Email}", registerRequestDto.Email);
-            if (string.IsNullOrWhiteSpace(registerRequestDto.Email) || string.IsNullOrWhiteSpace(registerRequestDto.Password))
+            if (string.IsNullOrWhiteSpace(registerRequestDto.Email) || string.IsNullOrWhiteSpace(registerRequestDto.Password) || string.IsNullOrWhiteSpace(registerRequestDto.Pin))
             {
                 _logger.LogWarning("Merchant registration request for email {Email} is missing required fields.", registerRequestDto.Email);
-                return BadRequest("Email and password are required.");
+                return BadRequest("Email, password, and pin are required.");
             }
 
             _logger.LogInformation("Attempting to retrieve school with code: {SchoolCode} for merchant registration.", registerRequestDto.SchoolCode);
@@ -131,7 +131,7 @@ namespace DigitalWalletApi.Controllers
             user.Merchant.UserId = user.Id; // Setting the UserId of the Merchant to the newly created user's Id
 
             _logger.LogInformation("Creating wallet for merchant user with email: {Email}", registerRequestDto.Email);
-            var wallet = await _walletService.CreateMerchantWallet(user.Id);
+            var wallet = await _walletService.CreateMerchantWallet(user.Id, registerRequestDto.Pin);
 
             _logger.LogInformation("Assigning wallet to merchant user with email: {Email}", registerRequestDto.Email);
             user.Wallet = wallet.Data;

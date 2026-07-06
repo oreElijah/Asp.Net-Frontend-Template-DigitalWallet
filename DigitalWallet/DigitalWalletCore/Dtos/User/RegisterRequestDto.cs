@@ -27,6 +27,11 @@ namespace DigitalWalletCore.Dtos.User
         public string Email { get; set; }
 
         [Required]
+        [MinLength(4, ErrorMessage = "Pin must be at least 4 digits long.")]
+        [MaxLength(4, ErrorMessage = "Pin cannot be more than 4 digits long")] 
+        public string Pin { get; set; }
+
+        [Required]
         public string Password { get; set; }
     }
 }

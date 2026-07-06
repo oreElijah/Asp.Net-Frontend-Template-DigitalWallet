@@ -214,6 +214,16 @@ namespace DigitalWalletInfrastructure.Repositories
                     };
                 }
 
+                if (senderWallet.Pin != transferDto.Pin)
+                {
+                    _logger.LogWarning("Incorrect pin provided for transfer by user {UserId} and wallet {SenderWalletNumber}", userId, senderWallet.WalletNumber);
+                    return new AppResponse<TransactionDto>
+                    {
+                        Succeeded = false,
+                        Message = "Incorrect pin."
+                    };
+                }
+
                 _logger.LogInformation("SenderWallet and ReceiverWallet were found, Carrying out transferring Logic");
                 senderWallet.Balance = senderWallet.Balance - transferDto.Amount;
                 receiverWallet.Balance = receiverWallet.Balance + transferDto.Amount;
@@ -291,6 +301,18 @@ namespace DigitalWalletInfrastructure.Repositories
 
             _logger.LogInformation("The user has sufficient balance for withdrawal, Creating transaction for Withdrawal of amount {Amount} to wallet {WalletNumber} and adding it to the database", withdrawDto.Amount, wallet.WalletNumber);
             var transaction = withdrawDto.ToTransactionFromWithdrawal(wallet.WalletNumber, TransactionStatus.Pending, "", wallet.Id);
+
+            _logger.LogInformation("Checkin Pin for user {UserId} and wallet {WalletNumber}", userId, wallet.WalletNumber);
+            if (wallet.Pin != withdrawDto.Pin)
+            {
+                _logger.LogWarning("Incorrect pin provided for withdrawal by user {UserId} and wallet {WalletNumber}", userId, wallet.WalletNumber);
+                return new AppResponse<TransactionDto>
+                {
+                    Succeeded = false,
+                    Message = "Incorrect pin."
+                };
+            }
+
             await _context.AddAsync(transaction);
             await _context.SaveChangesAsync();
 

@@ -20,9 +20,9 @@ namespace DigitalWalletInfrastructure.Services
             _logger = logger;
         }
 
-        public async Task<AppResponse<Wallet>> CreateMerchantWallet(string userId)
+        public async Task<AppResponse<Wallet>> CreateMerchantWallet(string userId, string pin)
         {
-            var wallet = await _walletRepo.CreateMerchantWallet(userId);
+            var wallet = await _walletRepo.CreateMerchantWallet(userId, pin);
 
             if(wallet == null)
             {
@@ -38,9 +38,9 @@ namespace DigitalWalletInfrastructure.Services
             return wallet;
         }
 
-        public async Task<AppResponse<Wallet>> CreateStudentWallet(string matricNumber, string userId)
+        public async Task<AppResponse<Wallet>> CreateStudentWallet(string matricNumber, string userId, string pin)
         {
-            var wallet = await _walletRepo.CreateStudentWallet(matricNumber, userId);
+            var wallet = await _walletRepo.CreateStudentWallet(matricNumber, userId, pin);
 
             if(wallet == null)
             {

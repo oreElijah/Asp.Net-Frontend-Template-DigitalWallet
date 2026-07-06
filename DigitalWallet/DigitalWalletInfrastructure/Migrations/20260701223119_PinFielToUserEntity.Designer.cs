@@ -3,6 +3,7 @@ using System;
 using DigitalWalletInfrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DigitalWalletInfrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260701223119_PinFielToUserEntity")]
+    partial class PinFielToUserEntity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -75,6 +78,9 @@ namespace DigitalWalletInfrastructure.Migrations
 
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("boolean");
+
+                    b.Property<int?>("Pin")
+                        .HasColumnType("integer");
 
                     b.Property<string>("ProfilePicture")
                         .HasColumnType("text");
@@ -244,9 +250,6 @@ namespace DigitalWalletInfrastructure.Migrations
 
                     b.Property<decimal>("LockedBalance")
                         .HasColumnType("numeric");
-
-                    b.Property<string>("Pin")
-                        .HasColumnType("text");
 
                     b.Property<string>("UserId")
                         .HasColumnType("text");

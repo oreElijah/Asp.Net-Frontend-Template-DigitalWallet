@@ -45,9 +45,9 @@ namespace DigitalWalletInfrastructure.Services
                     30),
                 borderPaint);
 
-            var titleFont = new SKFont(SKTypeface.Default, 42);
-            var walletFont = new SKFont(SKTypeface.Default, 32);
-            var watermarkFont = new SKFont(SKTypeface.Default, 90);
+            var titleFont = new SKFont(SKTypeface.FromFamilyName( "Arial", SKFontStyle.Bold), 70);
+            var walletFont = new SKFont(SKTypeface.Default, 48);
+            var watermarkFont = new SKFont(SKTypeface.Default, 110);
 
             using var greenText = new SKPaint
             {
@@ -63,26 +63,75 @@ namespace DigitalWalletInfrastructure.Services
 
             _logger.LogInformation("Logo bitmap decoded: {Decoded}", logo != null);
             canvas.DrawBitmap(
-                logo,
-                new SKRect(330, 40, 570, 120));
+            logo,
+            new SKRect(250, 40, 650, 145));
 
             canvas.DrawText(
-                businessName,
-                180,
-                170,
-                SKTextAlign.Left,
-                titleFont,
-                greenText);
+            businessName,
+            450,
+            210,
+            SKTextAlign.Center,
+            titleFont,
+            greenText);
+
+            var subtitleFont = new SKFont(SKTypeface.Default, 32);
+
+            using var grayPaint = new SKPaint
+            {
+                Color = SKColors.Gray,
+                IsAntialias = true
+            };
+
+            canvas.DrawText(
+                "Scan to Pay",
+                450,
+                260,
+                SKTextAlign.Center,
+                subtitleFont,
+                grayPaint);
 
             _logger.LogInformation("Decoding QR code from Base64 string.");
             byte[] qrBytes = Convert.FromBase64String(qrCodeBase64);
 
             _logger.LogInformation("QR code decoded: {Decoded}", qrBytes != null && qrBytes.Length > 0);
+            using var shadowPaint = new SKPaint
+            {
+                IsAntialias = true,
+                ImageFilter = SKImageFilter.CreateDropShadow(
+                dx: 0,
+                dy: 8,
+                sigmaX: 12,
+                sigmaY: 12,
+                color: SKColors.Black.WithAlpha(6)
+            )
+            };
+
             using var qrBitmap = SKBitmap.Decode(qrBytes);
 
-            canvas.DrawBitmap(
-                qrBitmap,
-                new SKRect(225, 250, 675, 700));
+            using var qrBackground = new SKPaint
+            {
+                Color = SKColors.White,
+                Style = SKPaintStyle.Fill,
+                IsAntialias = true
+            };
+
+            using var qrBorder = new SKPaint
+            {
+                Color = SKColors.Green,
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = 4,
+                IsAntialias = true
+            };
+
+            var qrRect = new SKRoundRect(
+                new SKRect(180, 320, 720, 860),
+                25,
+                25);
+
+            canvas.DrawRoundRect(qrRect, shadowPaint);            
+            canvas.DrawRoundRect(qrRect, qrBackground);
+            canvas.DrawRoundRect(qrRect, qrBorder);
+            canvas.DrawBitmap(qrBitmap, new SKRect(220, 360, 680, 820));
 
             using var whitePaint = new SKPaint
             {
@@ -91,41 +140,90 @@ namespace DigitalWalletInfrastructure.Services
             };
 
             canvas.DrawRect(
-                new SKRect(150, 760, 750, 880),
+                new SKRect(160, 900, 740, 1030),
                 whitePaint);
 
             using var grayBorder = new SKPaint
             {
-                Color = SKColors.LightGray,
+                Color = SKColors.Green,
                 Style = SKPaintStyle.Stroke,
-                StrokeWidth = 2
+                StrokeWidth = 5
             };
 
-            canvas.DrawRect(
-                new SKRect(150, 760, 750, 880),
-                grayBorder);
+            var walletRect = new SKRoundRect(
+                new SKRect(160, 900, 740, 1030),
+                25,
+                25);
+
+            using var walletShadow = new SKPaint
+            {
+                IsAntialias = true,
+                ImageFilter = SKImageFilter.CreateDropShadow(
+                    0,
+                    6,
+                    10,
+                    10,
+                    SKColors.Black.WithAlpha(10))
+            };
+            canvas.DrawRoundRect(walletRect, walletShadow);
+            canvas.DrawRoundRect(walletRect, whitePaint);
+            canvas.DrawRoundRect(walletRect, grayBorder);
+
+            
+
+            var labelFont = new SKFont(SKTypeface.Default, 24);
+
+            canvas.DrawText(
+                "Wallet Number",
+                450,
+                940,
+                SKTextAlign.Center,
+                labelFont,
+                grayPaint);
 
             canvas.DrawText(
                 walletNumber,
                 450,
-                835,
+                995,
                 SKTextAlign.Center,
                 walletFont,
                 greenText);
 
             using var watermarkPaint = new SKPaint
             {
-                Color = SKColors.Green.WithAlpha(20),
+                Color = SKColors.Green.WithAlpha(12),
                 IsAntialias = true
             };
 
             canvas.DrawText(
                 "CampusPay",
-                90,
-                1030,
+                80,
+                1120,
                 SKTextAlign.Left,
                 watermarkFont,
                 watermarkPaint);
+
+            using var footerPaint = new SKPaint
+            {
+                Color = SKColor.Parse("#18A54A"),
+                Style = SKPaintStyle.Fill,
+                IsAntialias = true
+            };
+
+            canvas.DrawRoundRect(
+                new SKRoundRect(
+                    new SKRect(25, 1150, 875, 1275),
+                    0,
+                    0),
+                footerPaint);
+            canvas.DrawText(
+                "Open CampusPay and scan to pay",
+                450,
+                1080,
+                SKTextAlign.Center,
+                subtitleFont,
+                grayPaint);
+
 
             using var image = SKImage.FromBitmap(bitmap);
             using var data = image.Encode(SKEncodedImageFormat.Png, 100);

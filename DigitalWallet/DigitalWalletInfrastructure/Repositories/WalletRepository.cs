@@ -23,7 +23,7 @@ namespace DigitalWalletInfrastructure.Repositories
             _logger = logger;
         }
 
-        public async Task<AppResponse<Wallet>> CreateMerchantWallet(string userId)
+        public async Task<AppResponse<Wallet>> CreateMerchantWallet(string userId, string pin)
         {
             _logger.LogInformation("Creating merchant wallet for user with ID: {UserId}", userId);
             var walletNumber = await GenerateMerchantWalletNumberAsync();
@@ -34,6 +34,7 @@ namespace DigitalWalletInfrastructure.Repositories
                 WalletNumber = walletNumber,
                 Balance = 0,
                 IsLocked = false,
+                Pin = pin,
                 UserId = userId,
                 CreatedAt = DateTime.UtcNow,
                 LastUpdatedAt = DateTime.UtcNow
@@ -51,7 +52,7 @@ namespace DigitalWalletInfrastructure.Repositories
             };
         }
 
-        public async Task<AppResponse<Wallet>> CreateStudentWallet(string matricNumber, string userId)
+        public async Task<AppResponse<Wallet>> CreateStudentWallet(string matricNumber, string userId, string pin)
         {
             _logger.LogInformation("Creating student wallet for user with ID: {UserId}", userId);
 
@@ -61,6 +62,7 @@ namespace DigitalWalletInfrastructure.Repositories
                 WalletNumber = matricNumber,
                 Balance = 0,
                 IsLocked = false,
+                Pin = pin,
                 UserId = userId,
                 CreatedAt = DateTime.UtcNow,
                 LastUpdatedAt = DateTime.UtcNow
@@ -69,12 +71,12 @@ namespace DigitalWalletInfrastructure.Repositories
             await _context.Wallet.AddAsync(wallet);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Merchant wallet created with ID: {WalletId} and Wallet Number: {WalletNumber}", wallet.Id, wallet.WalletNumber);
+            _logger.LogInformation("Student wallet created with ID: {WalletId} and Wallet Number: {WalletNumber}", wallet.Id, wallet.WalletNumber);
             return new AppResponse<Wallet>
             {
                 Data = wallet,
                 Succeeded = true,
-                Message = "Merchant wallet created successfully"
+                Message = "Student wallet created successfully"
             };
         }
 

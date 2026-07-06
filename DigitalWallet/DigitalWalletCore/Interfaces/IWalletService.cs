@@ -9,9 +9,9 @@ namespace DigitalWalletCore.Interfaces
 {
     public interface IWalletService
     {
-        public Task<AppResponse<Wallet>> CreateStudentWallet(string matricNumber, string userId);
+        public Task<AppResponse<Wallet>> CreateStudentWallet(string matricNumber, string userId, string pin);
 
-        public Task<AppResponse<Wallet>> CreateMerchantWallet(string userId);
+        public Task<AppResponse<Wallet>> CreateMerchantWallet(string userId, string pin);
 
         public Task<AppResponse<WalletDto>> GetWalletById(Guid walletId, string userId);
 
