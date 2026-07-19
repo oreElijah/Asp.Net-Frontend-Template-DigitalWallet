@@ -1,0 +1,37 @@
+# Build
+**/bin/
+**/obj/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+
+# Git
+.git
+.gitignore
+
+# Logs
+*.log
+
+# User files
+*.user
+*.suo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads
+RestaurantOrderingApi/uploads/
+
+# Environment
+.env
+.env.*
+
+# Tests results
+TestResults/
+coverage/
+
+# Docker
+docker-compose.override.yml

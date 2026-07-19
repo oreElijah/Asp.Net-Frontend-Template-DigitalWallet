@@ -275,6 +275,6 @@ namespace DigitalWalletApi.Controllers
                 bytes,
                 "image/png",
                 "CampusPay-QRCode.png");
-        }
+        }               
     }
 }

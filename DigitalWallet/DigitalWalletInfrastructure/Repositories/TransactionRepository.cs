@@ -1,14 +1,17 @@
 ﻿using DigitalWalletCore.Common;
+using DigitalWalletCore.Dtos.Merchant;
 using DigitalWalletCore.Dtos.Transaction;
 using DigitalWalletCore.Entities;
 using DigitalWalletCore.Enums;
 using DigitalWalletCore.Interfaces;
 using DigitalWalletInfrastructure.Data;
 using DigitalWalletInfrastructure.Mapper;
+using DigitalWalletInfrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Text;
 
 namespace DigitalWalletInfrastructure.Repositories
@@ -17,15 +20,17 @@ namespace DigitalWalletInfrastructure.Repositories
     {
         private readonly ApplicationDbContext _context;
         private readonly IPaymentService _paymentService;
+        private readonly IQRCodeService _qrCodeService;
         private readonly IWalletService _walletService;
         private readonly ILogger<TransactionRepository> _logger;
 
-        public TransactionRepository(ApplicationDbContext context, IPaymentService paymentService, IWalletService walletService, ILogger<TransactionRepository> logger)
+        public TransactionRepository(ApplicationDbContext context, IPaymentService paymentService, IWalletService walletService, ILogger<TransactionRepository> logger, IQRCodeService qrCodeService)
         {
             _context = context;
             _paymentService = paymentService;
             _walletService = walletService;
             _logger = logger;
+            _qrCodeService = qrCodeService;
         }
 
 
@@ -131,6 +136,128 @@ namespace DigitalWalletInfrastructure.Repositories
                 Succeeded = true,
                 Message = "Transactions retrieved successfully.",
                 Data = allTransactions
+            };
+        }
+
+        public async Task<AppResponse<TransactionDto>> ScanToChargeWalletAsync(BarcodeScanDto request, decimal amount, string userId, string pin)
+        {
+            var barCode = request.BarCode;
+
+            if (barCode == null || barCode.Length == 0)
+            {
+                return new AppResponse<TransactionDto>
+                {
+                    Succeeded = false,
+                    Message = "No barcode image file was uploaded."
+                };
+            }
+
+            byte[] barCodebytes;
+            using (var memoryStream = new MemoryStream())
+            {
+                await barCode.CopyToAsync(memoryStream);
+                barCodebytes = memoryStream.ToArray();
+            }
+
+            var extractedData = await _qrCodeService.ScanBarcode(barCodebytes);
+
+            if (extractedData == null)
+            {
+                return new AppResponse<TransactionDto>
+                {
+                    Succeeded = false,
+                    Message = "Failed to extract data from barcode. Ensure the image is clear."
+                };
+            }
+
+            var receiverWallet = await _context.Wallet
+                .Include(rw => rw.User)
+                .FirstOrDefaultAsync(rw => rw.UserId == userId);
+
+            var senderWallet = await _context.Wallet
+                .Include(sw => sw.User)
+                .FirstOrDefaultAsync(sw => sw.WalletNumber == extractedData);
+
+            if (senderWallet == null || receiverWallet == null)
+            {
+                return new AppResponse<TransactionDto>
+                {
+                    Succeeded = false,
+                    Message = "Either sender or receiver wallet not found."
+                };
+            }
+
+            var response = await ProcessTransactionAsync(senderWallet, receiverWallet, amount, pin);
+
+            return response;
+
+        }
+
+        private async Task<AppResponse<TransactionDto>> ProcessTransactionAsync(Wallet senderWallet, Wallet receiverWallet, decimal amount, string pin)
+        {
+            using var dbTransaction = await _context.Database.BeginTransactionAsync();
+
+            if (senderWallet.IsLocked || receiverWallet.IsLocked)
+            {
+                _logger.LogWarning("Either SenderWallet {SenderWalletNumber} or ReceiverWallet {ReceiverWalletNumber} is locked", senderWallet.WalletNumber, receiverWallet.WalletNumber);
+                return new AppResponse<TransactionDto>
+                {
+                    Succeeded = false,
+                    Message = "Wallet is locked."
+                };
+            }
+
+            if (senderWallet.Balance < amount)
+            {
+                return new AppResponse<TransactionDto>
+                {
+                    Succeeded = false,
+                    Message = "Insufficient balance"
+                };
+            }
+
+            if (senderWallet.Pin != pin)
+            {
+                _logger.LogWarning("Incorrect pin provided for transfer by user {UserId} and wallet {SenderWalletNumber}", senderWallet.UserId, senderWallet.WalletNumber);
+                return new AppResponse<TransactionDto>
+                {
+                    Succeeded = false,
+                    Message = "Incorrect pin."
+                };
+            }
+
+            senderWallet.Balance -= amount;
+            receiverWallet.Balance += amount;
+
+            await _context.SaveChangesAsync();
+
+            var transferDto = new TransferDto
+            {
+                Amount = amount,
+                Pin = pin,
+                Description = $"Transfer from {senderWallet.WalletNumber} to {receiverWallet.WalletNumber} using scan to charge",
+                ReceiverWalletNumber = receiverWallet.WalletNumber
+            };
+
+            var transaction = transferDto.ToTransactionFromTransfer(senderWallet.WalletNumber, TransactionStatus.Successful, senderWallet.Id, receiverWallet.Id);
+            await _context.Transaction.AddAsync(transaction);
+
+            _logger.LogInformation("Transfer process completed successfully for user {ReceiverWallet} with amount {Amount}", receiverWallet.WalletNumber, transferDto.Amount);
+
+            senderWallet.SentTransactions.Add(transaction);
+            receiverWallet.ReceivedTransactions.Add(transaction);
+
+            await _context.SaveChangesAsync();
+
+            var TransferDto = transaction.ToTransactionResponseDto2(receiverWallet, senderWallet);
+
+            await dbTransaction.CommitAsync();
+
+            return new AppResponse<TransactionDto>
+            {
+                Succeeded = true,
+                Data = TransferDto,
+                Message = "Transfer Succeeded"
             };
         }
 

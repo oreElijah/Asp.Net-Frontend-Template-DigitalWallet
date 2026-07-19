@@ -3,7 +3,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using QRCoder;
 using SkiaSharp;
-
+using System.Collections.Generic;
+using ZXing;
+using ZXing.Common;
+using ZXing.SkiaSharp;
 
 namespace DigitalWalletInfrastructure.Services
 {
@@ -59,7 +62,7 @@ namespace DigitalWalletInfrastructure.Services
             _logger.LogInformation("Current directory: {Directory}", Directory.GetCurrentDirectory());
             _logger.LogInformation("Logo file exists: {Exists}", File.Exists("logo.png"));
 
-            using var logo = SKBitmap.Decode("logo.png");
+            using var logo = SKBitmap.Decode("Image/logo.png");
 
             _logger.LogInformation("Logo bitmap decoded: {Decoded}", logo != null);
             canvas.DrawBitmap(
@@ -249,6 +252,37 @@ namespace DigitalWalletInfrastructure.Services
 
             // Convert the byte array to a Base64 string
             return Convert.ToBase64String(qrCodeImage);
+        }
+
+        public async Task<string?> ScanBarcode(byte[] imageBytes)
+        {            
+           try
+            {
+                using var bitmap = SKBitmap.Decode(imageBytes);
+                if (bitmap == null)
+                {
+                    _logger.LogWarning("Failed to decode barcode image bytes into a bitmap.");
+                    return null;
+                }
+
+                var reader = new BarcodeReader()
+                {
+                    Options = new DecodingOptions
+                    {
+                        PossibleFormats = new List<BarcodeFormat> { BarcodeFormat.CODE_128 },
+                        TryHarder = true
+                    }
+                };
+
+                // 3. Decode the barcode
+                var result = reader.Decode(bitmap);
+                return result?.Text;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while scanning the barcode.");
+                return null;
+            }
         }
     }
 }

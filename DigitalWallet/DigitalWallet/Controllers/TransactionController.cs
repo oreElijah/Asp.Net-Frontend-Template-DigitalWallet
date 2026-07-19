@@ -2,9 +2,10 @@
 using DigitalWalletApi.Filter;
 using DigitalWalletApplication.Features.Transaction.Commands;
 using DigitalWalletApplication.Features.Transaction.Queries;
+using DigitalWalletCore.Dtos.Merchant;
+using DigitalWalletCore.Dtos.Payment;
 using DigitalWalletCore.Dtos.Transaction;
 using DigitalWalletCore.Interfaces;
-using DigitalWalletCore.Dtos.Payment;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -136,6 +137,19 @@ namespace DigitalWalletApi.Controllers
             await _paymentService.HandleWebhookForWithdrawalAsync(body);
 
             return Ok();
+        }
+
+        [ServiceFilter(typeof(LogActionFilter))]
+        [HttpPost("scan_to_charge")]
+        [Authorize(Roles = "Merchant")]
+        public async Task<IActionResult> ScanToCharge([FromForm] BarcodeScanDto request, [FromForm] decimal amount, [FromForm] string pin)
+        {
+            var userId = User.GetUserId();
+
+            var command = new ScanToChargeCommand(request, amount, userId, pin);
+            var result = await _sender.Send(command);
+
+            return Ok(result);
         }
     }
 }

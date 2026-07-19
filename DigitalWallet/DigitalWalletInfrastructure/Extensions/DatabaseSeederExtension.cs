@@ -1,5 +1,7 @@
 ﻿using DigitalWalletCore.Entities;
 using DigitalWalletInfrastructure.Seeds;
+using DigitalWalletInfrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
@@ -19,14 +21,16 @@ namespace DigitalWalletInfrastructure.Extensions
 
             var services = scope.ServiceProvider;
 
-            var roleManager =
-                services.GetRequiredService<RoleManager<IdentityRole>>();
+            var context = services.GetRequiredService<ApplicationDbContext>();
 
-            var userManager =
-                services.GetRequiredService<UserManager<AppUser>>();
+            // Apply all pending migrations
+            await context.Database.MigrateAsync();
 
-            var configuration =
-                services.GetRequiredService<IConfiguration>();
+            var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+
+            var userManager = services.GetRequiredService<UserManager<AppUser>>();
+
+            var configuration = services.GetRequiredService<IConfiguration>();
 
             await RoleSeeder.SeedAsync(roleManager);
 

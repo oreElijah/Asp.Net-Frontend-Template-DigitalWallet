@@ -35,10 +35,11 @@ namespace DigitalWalletApi.Controllers
             private readonly ApplicationDbContext _context;
             private readonly IEmailService _emailService;
             private readonly IFileStorageService _fileStorageService;
+            private readonly IQRCodeService _qRCodeService;
             private readonly IWebHostEnvironment _env;
             private readonly ILogger<StudentController> _logger;
 
-            public StudentController(UserManager<AppUser> userManager, IAuthService authService, IWalletService walletService, IEmailService emailService, IFileStorageService fileStorageService, IWebHostEnvironment env, ILogger<StudentController> logger, IPaymentService paystackService, ApplicationDbContext context)
+            public StudentController(UserManager<AppUser> userManager, IAuthService authService, IWalletService walletService, IEmailService emailService, IFileStorageService fileStorageService, IQRCodeService qRCodeService, IWebHostEnvironment env, ILogger<StudentController> logger, IPaymentService paystackService, ApplicationDbContext context)
             {
                 _userManager = userManager;
                 _authService = authService;
@@ -47,6 +48,7 @@ namespace DigitalWalletApi.Controllers
                 _context = context;
                 _paystackService = paystackService;
                 _fileStorageService = fileStorageService;
+                _qRCodeService = qRCodeService;
                 _logger = logger;
                 _env = env;
             }
@@ -151,7 +153,7 @@ namespace DigitalWalletApi.Controllers
 
             [ServiceFilter(typeof(LogActionFilter))]
             [HttpPut("update_profile")]
-            [Authorize]
+            [Authorize(Roles = "Student")]
             public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileDto updateProfileDto)
             {
                 var userId = User.GetUserId();

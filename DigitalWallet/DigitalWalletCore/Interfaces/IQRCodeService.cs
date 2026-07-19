@@ -9,5 +9,7 @@ namespace DigitalWalletCore.Interfaces
         public Task<string> GenerateQRCodeAsync(string data);
 
         public Task<byte[]> DownloadQRCodeAsync(string BusinessName, string Qrcode, string walletNumber);
+
+        public Task<string> ScanBarcode(byte[] imageBytes);
     }
 }
