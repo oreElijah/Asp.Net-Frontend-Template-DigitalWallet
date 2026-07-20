@@ -4,9 +4,9 @@ WORKDIR /src
 
 COPY . .
 
-RUN dotnet restore DigitalWallet/DigitalWalletApi.csproj
+RUN dotnet restore DigitalWalletApi.csproj
 
-RUN dotnet publish DigitalWallet/DigitalWalletApi.csproj \
+RUN dotnet publish DigitalWalletApi.csproj \
     -c Release \
     -o /app/publish \
     --no-restore
