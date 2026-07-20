@@ -29,7 +29,7 @@ WORKDIR /src
 
 COPY . .
 
-WORKDIR /src/DigitalWallet
+WORKDIR /src/DigitalWalletApi
 
 RUN apt-get update && apt-get install -y \
     libfontconfig1 \
