@@ -1,45 +1,22 @@
-# FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
-
-# WORKDIR /src
-
-# COPY DigitalWallet/*.csproj DigitalWallet/
-# COPY DigitalWalletApplication/*.csproj DigitalWalletApplication/
-# COPY DigitalWalletCore/*.csproj DigitalWalletCore/
-# COPY DigitalWalletInfrastructure/*.csproj DigitalWalletInfrastructure/
-
-# RUN dotnet restore DigitalWallet/DigitalWalletApi.csproj
-
-# COPY . .
-
-# RUN dotnet publish DigitalWallet/DigitalWalletApi.csproj -c Release -o /app/publish
-
-# FROM mcr.microsoft.com/dotnet/aspnet:10.0
-
-# WORKDIR /app
-
-# COPY --from=build /app/publish .
-
-# EXPOSE 8080
-
-# ENTRYPOINT ["dotnet","DigitalWallet.dll"]
-
-FROM mcr.microsoft.com/dotnet/sdk:10.0
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 
 WORKDIR /src
 
 COPY . .
 
-WORKDIR /src/DigitalWalletApi
+RUN dotnet restore DigitalWallet/DigitalWalletApi.csproj
 
-RUN apt-get update && apt-get install -y \
-    libfontconfig1 \
-    libfreetype6 \
-    libx11-6 \
-    libxrender1 \
-    libxext6
+RUN dotnet publish DigitalWallet/DigitalWalletApi.csproj \
+    -c Release \
+    -o /app/publish \
+    --no-restore
 
-RUN dotnet restore DigitalWalletApi.csproj
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 
-EXPOSE 5071
+WORKDIR /app
 
-CMD ["dotnet", "watch", "run", "--urls=http://0.0.0.0:5071"]
+COPY --from=build /app/publish .
+
+EXPOSE 10000
+
+ENTRYPOINT ["dotnet", "DigitalWalletApi.dll"]
