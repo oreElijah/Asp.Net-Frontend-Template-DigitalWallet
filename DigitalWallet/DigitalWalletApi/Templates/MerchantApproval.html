@@ -1,0 +1,138 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Merchant Approval Required</title>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #f5f7fb;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #333333;
+        }
+
+        .container {
+            max-width: 620px;
+            margin: auto;
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 35px;
+            box-shadow: 0 5px 18px rgba(0, 0, 0, .08);
+        }
+
+        .logo {
+            color: #16a34a;
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .heading {
+            font-size: 24px;
+            margin-bottom: 25px;
+        }
+
+        .details {
+            background: #f8fafc;
+            border-left: 4px solid #16a34a;
+            padding: 18px;
+            margin: 25px 0;
+            border-radius: 6px;
+        }
+
+        .details p {
+            margin: 8px 0;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 14px 28px;
+            background: #16a34a;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+
+        .footer {
+            margin-top: 40px;
+            font-size: 12px;
+            color: #777777;
+            text-align: center;
+        }
+
+        .small {
+            font-size: 14px;
+            color: #666666;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <div class="logo">
+            Campus Pay
+        </div>
+
+        <div class="heading">
+            Merchant Approval Required
+        </div>
+
+        <p>Hello <strong>{{school_admin_name}}</strong>,</p>
+
+        <p>
+            A new merchant has registered under your institution and is awaiting approval before they can begin
+            accepting payments on Campus Pay.
+        </p>
+
+        <div class="details">
+
+            <p><strong>Business Name:</strong> {{business_name}}</p>
+
+            <p><strong>Email:</strong> {{merchant_email}}</p>
+
+            <p><strong>Registration Date:</strong> {{registration_date}}</p>
+
+        </div>
+
+        <p>
+            Please sign in to your School Administrator dashboard to review this merchant's information and either
+            approve or reject the registration request.
+        </p>
+
+        <a class="button" href="{{login_link}}">
+            Login to Review Merchant
+        </a>
+
+        <p class="small">
+            If the button above does not work, copy and paste the following link into your browser:
+        </p>
+
+        <p class="small">
+            {{login_link}}
+        </p>
+
+        <p>
+            Thank you for helping keep your school's payment ecosystem secure.
+        </p>
+
+        <p>
+            Regards,<br>
+            <strong>Campus Pay Team</strong>
+        </p>
+
+        <div class="footer">
+            © 2026 Campus Pay. All rights reserved.
+        </div>
+
+    </div>
+
+</body>
+
+</html>

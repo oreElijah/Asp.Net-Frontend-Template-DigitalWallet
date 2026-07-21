@@ -66,6 +66,13 @@ namespace DigitalWalletApi.Controllers
                     return BadRequest("Email, password, and pin are required.");
                 }
 
+                var existingUser = await _userManager.FindByEmailAsync(registerDto.Email);
+                if (existingUser != null)
+                {
+                    _logger.LogWarning("Merchant registration failed: User with email {Email} already exists.", registerDto.Email);
+                    return BadRequest("User with this email already exists.");
+                }
+
                 var profilePictureUrl = "";
                 if (registerDto.ProfilePicture != null)
                 {

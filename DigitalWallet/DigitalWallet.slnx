@@ -1,5 +1,5 @@
 <Solution>
-  <Project Path="DigitalWallet/DigitalWalletApi.csproj" />
+  <Project Path="DigitalWalletApi/DigitalWalletApi.csproj" />
   <Project Path="DigitalWalletApplication/DigitalWalletApplication.csproj" />
   <Project Path="DigitalWalletCore/DigitalWalletCore.csproj" />
   <Project Path="DigitalWalletInfrastructure/DigitalWalletInfrastructure.csproj" />

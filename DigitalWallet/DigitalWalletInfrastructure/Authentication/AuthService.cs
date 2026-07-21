@@ -262,7 +262,7 @@ namespace DigitalWalletInfrastructure.Authentication
         public async Task<CreateSchoolAdminResponseDto> CreateSchoolAdminAsync(CreateSchoolAdminDto createSchoolAdminDto)
         {
             var school = await GetSchoolByCodeAsync(createSchoolAdminDto.SchoolCode);
-            
+
             var user = new AppUser
             {
                 FirstName = createSchoolAdminDto.Firstname,
@@ -298,6 +298,38 @@ namespace DigitalWalletInfrastructure.Authentication
                 Email = user.Email,
                 CreatedAt = user.CreatedAt
             };
+        }
+        
+        public async Task<List<string>> GetSchoolAdminByCodeAsync(string schoolCode)
+        {
+            _logger.LogInformation("Searching for school admin with school code {SchoolCode}", schoolCode);
+
+                var schoolAdmins = await (
+                    from user in _context.Users
+                    join userRole in _context.UserRoles on user.Id equals userRole.UserId
+                    join role in _context.Roles on userRole.RoleId equals role.Id
+                    where role.Name == "SchoolAdmin"
+                        && user.SchoolCode == schoolCode
+                    select user
+                ).ToListAsync();
+
+            if (schoolAdmins == null || !schoolAdmins.Any())
+            {
+                _logger.LogWarning("No school admin found for school code {SchoolCode}", schoolCode);
+                throw new NotFoundException($"No school admin found for school code {schoolCode}");
+            }
+
+            _logger.LogInformation("School admins found for school code {SchoolCode}", schoolCode);
+
+            List<string> schoolAdminDetails = new List<string>();
+            
+                foreach (AppUser admin in schoolAdmins)
+                {
+                    schoolAdminDetails.Add(admin.Email);
+                }
+            
+            
+            return schoolAdminDetails;
         }
     }
 }

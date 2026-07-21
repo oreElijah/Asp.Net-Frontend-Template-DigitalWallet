@@ -238,7 +238,7 @@ namespace DigitalWalletInfrastructure.Services
         {
             var base_url = _config["QRCode:BaseUrl"];
             // Create a Url payload
-            var Payload = new PayloadGenerator.Url($"{base_url}?data={data}");
+            var Payload = new PayloadGenerator.Url($"{base_url}/data={data}");
 
             // Generate the QR code data from the payload
             using var qrCodeData = QRCodeGenerator.GenerateQrCode(Payload);
@@ -254,7 +254,7 @@ namespace DigitalWalletInfrastructure.Services
             return Convert.ToBase64String(qrCodeImage);
         }
 
-        public async Task<string?> ScanBarcode(byte[] imageBytes)
+        public async Task<string> ScanBarcode(byte[] imageBytes)
         {            
            try
             {
@@ -262,7 +262,7 @@ namespace DigitalWalletInfrastructure.Services
                 if (bitmap == null)
                 {
                     _logger.LogWarning("Failed to decode barcode image bytes into a bitmap.");
-                    return null;
+                    return string.Empty;
                 }
 
                 var reader = new BarcodeReader()

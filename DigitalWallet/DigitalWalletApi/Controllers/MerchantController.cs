@@ -32,16 +32,18 @@ namespace DigitalWalletApi.Controllers
         private readonly IWalletService _walletService;
         private readonly IFileStorageService _fileStorageService;
         private readonly IQRCodeService _qrCodeService;
+        private readonly IConfiguration _config;
         private readonly IEmailService _emailService;
         private readonly IWebHostEnvironment _env;
         private readonly ILogger<MerchantController> _logger;
 
-        public MerchantController(UserManager<AppUser> userManager, ApplicationDbContext context, IAuthService authService, IWalletService walletService, IEmailService emailService, IWebHostEnvironment env, ILogger<MerchantController> logger, IPaymentService paystackService, IFileStorageService fileStorageService, IQRCodeService qrCodeService)
+        public MerchantController(UserManager<AppUser> userManager, ApplicationDbContext context, IAuthService authService, IWalletService walletService, IConfiguration config, IEmailService emailService, IWebHostEnvironment env, ILogger<MerchantController> logger, IPaymentService paystackService, IFileStorageService fileStorageService, IQRCodeService qrCodeService)
         {
             _userManager = userManager;
             _context = context; 
             _authService = authService;
             _walletService = walletService;
+            _config = config;
             _emailService = emailService;
             _paystackService = paystackService;
             _fileStorageService = fileStorageService;
@@ -60,6 +62,13 @@ namespace DigitalWalletApi.Controllers
             {
                 _logger.LogWarning("Merchant registration request for email {Email} is missing required fields.", registerRequestDto.Email);
                 return BadRequest("Email, password, and pin are required.");
+            }
+
+            var existingUser = await _userManager.FindByEmailAsync(registerRequestDto.Email);
+            if (existingUser != null)
+            {
+                _logger.LogWarning("Merchant registration failed: User with email {Email} already exists.", registerRequestDto.Email);
+                return BadRequest("User with this email already exists.");
             }
 
             _logger.LogInformation("Attempting to retrieve school with code: {SchoolCode} for merchant registration.", registerRequestDto.SchoolCode);
@@ -111,6 +120,7 @@ namespace DigitalWalletApi.Controllers
                 }
             };
 
+            var schoolAdmins = await _authService.GetSchoolAdminByCodeAsync(registerRequestDto.SchoolCode);
             _logger.LogInformation("Creating merchant user in the database for email: {Email}", registerRequestDto.Email);
             var newUser = await _userManager.CreateAsync(user, registerRequestDto.Password);
             if (!newUser.Succeeded)
@@ -140,6 +150,15 @@ namespace DigitalWalletApi.Controllers
             user.Merchant.QRCodeString = base64;
             _logger.LogInformation("Generating email confirmation token for merchant user with email: {Email}", registerRequestDto.Email);
             var verifyToken = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+
+            _logger.LogInformation("Enqueuing background job to send verification email to merchant user with email: {Email}", registerRequestDto.Email);
+            BackgroundJob.Enqueue<IEmailService>(x =>
+               x.SendMerchantApprovalEmail(
+                    schoolAdmins[0], // Assuming the first school admin is the one to notify
+                    "SchoolAdmin",
+                     registerRequestDto.BusinessName,
+                     user.Email,
+                     DateTime.UtcNow));
 
             _logger.LogInformation("Enqueuing background job to send verification email to merchant user with email: {Email}", registerRequestDto.Email);
             BackgroundJob.Enqueue<IEmailService>(x =>

@@ -19,5 +19,6 @@ namespace DigitalWalletCore.Interfaces
         public Task<bool> ApproveMerchantAsync(Guid merchantId);
         public Task<bool> RejectMerchantAsync(Guid merchantId);
         public Task<CreateSchoolAdminResponseDto> CreateSchoolAdminAsync(CreateSchoolAdminDto createSchoolAdminDto);
+        public Task<List<string>> GetSchoolAdminByCodeAsync(string schoolCode);
     }
 }

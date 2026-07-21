@@ -1,9 +1,11 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <title>Deposit Successful</title>
+    <title>Transfer Successful</title>
+
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -11,13 +13,14 @@
             color: #333;
             padding: 20px;
         }
+
         .container {
             background-color: #ffffff;
             max-width: 600px;
             margin: auto;
             padding: 30px;
             border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
         }
 
         .success {
@@ -40,32 +43,36 @@
     </style>
 
 </head>
+
 <body>
 
     <div class="container">
 
-        <h2 class="success">Deposit Successful</h2>
+        <h2 class="success">Transfer Successful</h2>
 
-        <p>Hello {{name}},</p>
+        <p>Hello {{sender_name}},</p>
 
         <p>
-            We are pleased to inform you that your wallet has been successfully funded.
+            Your transfer has been completed successfully.
         </p>
 
         <div class="details">
-            <strong>Transaction ID:</strong> {{id}} <br />
-            <strong>Wallet Number:</strong> {{WalletNumber}} <br />
-            <strong>Amount Deposited:</strong> ₦{{amount}} <br />
-            <strong>Reference:</strong> {{reference}} <br />
+
+            <strong>Transaction ID:</strong> {{transaction_id}} <br/>
+            <strong>Recipient:</strong> {{receiver_name}} <br/>
+            <strong>Amount Sent:</strong> ₦{{amount}} <br/>
+            <strong>Description:</strong> {{description}} <br/>
+            <strong>Reference:</strong> {{reference}} <br/>
             <strong>Status:</strong> {{status}}
+
         </div>
 
         <p>
-            The funds have been credited to your Campus Pay wallet and are now available for use.
+            The amount has been successfully deducted from your Campus Pay wallet and credited to the recipient.
         </p>
 
         <p>
-            If you did not authorize this transaction, please contact support immediately.
+            If you did not authorize this transaction, please contact Campus Pay Support immediately.
         </p>
 
         <p>
@@ -84,4 +91,5 @@
     </div>
 
 </body>
+
 </html>

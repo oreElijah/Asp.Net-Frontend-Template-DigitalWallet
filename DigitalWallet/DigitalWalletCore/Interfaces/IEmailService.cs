@@ -13,8 +13,8 @@ namespace DigitalWalletCore.Interfaces
         public Task ResetPasswordEmail(string email, string token, string newPassword);
         public Task SendCustomerDepositSuccessfulEmail(string userName, string email, Guid Id, decimal amount, string reference, string walletNumber, TransactionStatus status);
         public Task SendCustomerWithdrawalSuccessfulEmail(string userName, string email, Guid Id, decimal amount, string reference, string accountName, string accountNumber, string bankName, string walletNumber, TransactionStatus status);
-
-        //public Task SendAdminPaymentSuccessfulEmail(string customerName, string customerEmail, string customerPhone, Guid orderId);
-
+        public Task SendMerchantApprovalEmail(string schoolAdminEmail, string schoolAdminName, string merchantBuisnessName, string merchantEmail, DateTime registrationDate);
+        public Task SendReceiverTransferSuccessfulEmail(string receiverName, string receiverEmail, Guid transactionId, decimal amount, string reference, string Description, string senderName, TransactionStatus status);
+        public Task SendSenderTransferSuccessfulEmail(string senderName, string senderEmail, Guid transactionId, decimal amount, string reference, string Description, string receiverName,  TransactionStatus status);        
     }
 }

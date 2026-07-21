@@ -318,5 +318,217 @@ namespace DigitalWalletInfrastructure.Services
             }
         }
 
+        public async Task SendMerchantApprovalEmail(string schoolAdminEmail, string schoolAdminName, string merchantBuisnessName, string merchantEmail, DateTime registrationDate)
+        {
+            var BrevoUrl = _configuration["BrevoUrl"];
+            var apiKey = _configuration["BREVO_API_KEY"];
+            var fromEmail = _configuration["Email:From"];
+            var fromName = _configuration["Email:FromName"] ?? "Campus Pay";
+
+            var templatePath = Path.Combine(_environment.ContentRootPath, "Templates", "MerchantApproval.html");
+
+            var login_link = _configuration["FrontendUrl"] + "/login";
+            var html = await File.ReadAllTextAsync(templatePath);
+
+            html = html.Replace("{{school_admin_name}}", schoolAdminName);
+            html = html.Replace("{{business_name}}", merchantBuisnessName);
+            html = html.Replace("{{email}}", merchantEmail);
+            html = html.Replace("{{registration_date}}", registrationDate.ToString("yyyy-MM-dd"));
+            html = html.Replace("{{login_link}}", login_link);
+
+            var payload = new Dictionary<string, object>
+            {
+                ["sender"] = new Dictionary<string, string>
+                {
+                    ["name"] = fromName,
+                    ["email"] = fromEmail
+                },
+                ["to"] = new[]
+                {
+            new Dictionary<string, string>
+            {
+                ["email"] = schoolAdminEmail,
+                ["name"] = schoolAdminName
+            }
+        },
+                ["subject"] = "Merchant Approval - Campus Pay",
+                ["htmlContent"] = html
+            };
+
+            try
+            {
+                using var http = new HttpClient();
+
+                using var request = new HttpRequestMessage(
+                    HttpMethod.Post,
+                    BrevoUrl)
+                {
+                    Content = new StringContent(
+                        JsonSerializer.Serialize(payload),
+                        Encoding.UTF8,
+                        "application/json")
+                };
+
+                request.Headers.Add("accept", "application/json");
+                request.Headers.Add("api-key", apiKey);
+
+                using var response = await http.SendAsync(request);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var body = await response.Content.ReadAsStringAsync();
+
+                    _logger.LogError($"Failed to send Merchant Approval email (Brevo {(int)response.StatusCode}): {body}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send Merchant Approval email.");
+            }
+        }
+
+        public async Task SendReceiverTransferSuccessfulEmail(string receiverName, string receiverEmail, Guid transactionId, decimal amount, string reference, string Description, string senderName, TransactionStatus status)
+        {
+            var BrevoUrl = _configuration["BrevoUrl"];
+            var apiKey = _configuration["BREVO_API_KEY"];
+            var fromEmail = _configuration["Email:From"];
+            var fromName = _configuration["Email:FromName"] ?? "Campus Pay";
+
+            var templatePath = Path.Combine(_environment.ContentRootPath, "Templates", "MerchantApproval.html");
+
+            var html = await File.ReadAllTextAsync(templatePath);
+
+            html = html.Replace("{{receiver_name}}", receiverName);
+            html = html.Replace("{{transaction_id}}", transactionId.ToString());
+            html = html.Replace("{{SenderName}}", senderName);
+            html = html.Replace("{{amount}}", amount.ToString("F2"));
+            html = html.Replace("{{description}}", Description);
+            html = html.Replace("{{reference}}", reference);
+            html = html.Replace("{{status}}", status.ToString());
+
+            var payload = new Dictionary<string, object>
+            {
+                ["sender"] = new Dictionary<string, string>
+                {
+                    ["name"] = fromName,
+                    ["email"] = fromEmail
+                },
+                ["to"] = new[]
+                {
+            new Dictionary<string, string>
+            {
+                ["email"] = receiverEmail,
+                ["name"] = receiverName
+            }
+        },
+                ["subject"] = "Funds Received - Campus Pay",
+                ["htmlContent"] = html
+            };
+
+            try
+            {
+                using var http = new HttpClient();
+
+                using var request = new HttpRequestMessage(
+                    HttpMethod.Post,
+                    BrevoUrl)
+                {
+                    Content = new StringContent(
+                        JsonSerializer.Serialize(payload),
+                        Encoding.UTF8,
+                        "application/json")
+                };
+
+                request.Headers.Add("accept", "application/json");
+                request.Headers.Add("api-key", apiKey);
+
+                using var response = await http.SendAsync(request);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var body = await response.Content.ReadAsStringAsync();
+
+                    _logger.LogError($"Failed to send Receiver Transfer Successful email (Brevo {(int)response.StatusCode}): {body}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send Receiver Transfer Successful email.");
+            }
+
+        }
+        
+        public async Task SendSenderTransferSuccessfulEmail(string senderName, string senderEmail, Guid transactionId, decimal amount, string reference, string Description,string receiverName, TransactionStatus status)
+        {
+            var BrevoUrl = _configuration["BrevoUrl"];
+            var apiKey = _configuration["BREVO_API_KEY"];
+            var fromEmail = _configuration["Email:From"];
+            var fromName = _configuration["Email:FromName"] ?? "Campus Pay";
+
+            var templatePath = Path.Combine(_environment.ContentRootPath, "Templates", "SenderTransferSuccessful.html");
+
+            var login_link = _configuration["FrontendUrl"] + "/login";
+            var html = await File.ReadAllTextAsync(templatePath);
+
+            html = html.Replace("{{sender_name}}", senderName);
+            html = html.Replace("{{transaction_id}}", transactionId.ToString());
+            html = html.Replace("{{receiver_name}}", receiverName);
+            html = html.Replace("{{amount}}", amount.ToString("F2"));
+            html = html.Replace("{{description}}", Description);
+            html = html.Replace("{{reference}}", reference);
+            html = html.Replace("{{status}}", status.ToString());
+
+            var payload = new Dictionary<string, object>
+            {
+                ["sender"] = new Dictionary<string, string>
+                {
+                    ["name"] = fromName,
+                    ["email"] = fromEmail
+                },
+                ["to"] = new[]
+                {
+            new Dictionary<string, string>
+            {
+                ["email"] = senderEmail,
+                ["name"] = senderName
+            }
+        },
+                ["subject"] = "Transfer Successful - Campus Pay",
+                ["htmlContent"] = html
+            };
+
+            try
+            {
+                using var http = new HttpClient();
+
+                using var request = new HttpRequestMessage(
+                    HttpMethod.Post,
+                    BrevoUrl)
+                {
+                    Content = new StringContent(
+                        JsonSerializer.Serialize(payload),
+                        Encoding.UTF8,
+                        "application/json")
+                };
+
+                request.Headers.Add("accept", "application/json");
+                request.Headers.Add("api-key", apiKey);
+
+                using var response = await http.SendAsync(request);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var body = await response.Content.ReadAsStringAsync();
+
+                    _logger.LogError($"Failed to send Sender Transfer Successful email (Brevo {(int)response.StatusCode}): {body}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send Sender Transfer Successful email.");
+            }
+        }
+       
+
     }
 }

@@ -77,11 +77,16 @@ namespace DigitalWalletApi.Controllers
         }
 
         [ServiceFilter(typeof(LogActionFilter))]
-        [HttpPost("Transfer")]
+        [HttpPost("Transfer/{MerchantWalletnumber}")]
         [Authorize(Roles = "Student")]
-        public async Task<IActionResult> Transfer([FromBody] TransferDto request)
+        public async Task<IActionResult> Transfer([FromBody] TransferDto request, string MerchantWalletnumber)
         {
             var userId = User.GetUserId();
+
+            if (!string.IsNullOrWhiteSpace(MerchantWalletnumber))
+            {
+                request.ReceiverWalletNumber = MerchantWalletnumber;
+            }
 
             var command = new TransferCommand(request, userId);
             var result = await _sender.Send(command);
