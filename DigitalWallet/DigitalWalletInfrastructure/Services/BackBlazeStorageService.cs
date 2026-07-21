@@ -28,7 +28,7 @@ namespace DigitalWalletInfrastructure.Services
 
             var request = new PutObjectRequest
             {
-                BucketName = _configuration["AWS:BucketName"],
+                BucketName = _configuration["Backblaze:BucketName"],
                 Key = fileName,
                 InputStream = stream,
                 ContentType = file.ContentType

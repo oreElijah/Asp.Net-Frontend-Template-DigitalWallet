@@ -332,7 +332,7 @@ namespace DigitalWalletInfrastructure.Services
 
             html = html.Replace("{{school_admin_name}}", schoolAdminName);
             html = html.Replace("{{business_name}}", merchantBuisnessName);
-            html = html.Replace("{{email}}", merchantEmail);
+            html = html.Replace("{{merchant_email}}", merchantEmail);
             html = html.Replace("{{registration_date}}", registrationDate.ToString("yyyy-MM-dd"));
             html = html.Replace("{{login_link}}", login_link);
 
@@ -528,7 +528,78 @@ namespace DigitalWalletInfrastructure.Services
                 _logger.LogError(ex, "Failed to send Sender Transfer Successful email.");
             }
         }
-       
 
+        public async Task SendMerchantApprovalResponseEmail(bool isApproved, string merchantBuisnessName, string merchantEmail, DateTime DecisionDate)
+        {
+            var BrevoUrl = _configuration["BrevoUrl"];
+            var apiKey = _configuration["BREVO_API_KEY"];
+            var fromEmail = _configuration["Email:From"];
+            var fromName = _configuration["Email:FromName"] ?? "Campus Pay";
+
+            var templatePath = Path.Combine(_environment.ContentRootPath, "Templates", "MerchantApprovalResponse.html");
+
+            var login_link = _configuration["FrontendUrl"] + "/login";
+            var html = await File.ReadAllTextAsync(templatePath);
+
+            html = html.Replace("{{status_color}}", isApproved ? "#28a745" : "#dc3545");
+
+            html = html.Replace("{{decision}}", isApproved ? "Approved" : "Rejected");
+            html = html.Replace("{{business_name}}", merchantBuisnessName);
+            html = html.Replace("{{merchant_email}}", merchantEmail);
+            html = html.Replace("{{decision_date}}", DecisionDate.ToString("yyyy-MM-dd"));
+            html = html.Replace("{{login_link}}", isApproved ? login_link : "Aplogies but the Login button doesn't work since you have been rejected");
+            html = html.Replace("{{login_link2}}", isApproved ? "Login to Campus Pay" : " ");
+
+            var payload = new Dictionary<string, object>
+            {
+                ["sender"] = new Dictionary<string, string>
+                {
+                    ["name"] = fromName,
+                    ["email"] = fromEmail
+                },
+                ["to"] = new[]
+                {
+            new Dictionary<string, string>
+            {
+                ["email"] = merchantEmail,
+                ["name"] = merchantBuisnessName
+            }
+        },
+                ["subject"] = "Merchant Approval Response- Campus Pay",
+                ["htmlContent"] = html
+            };
+
+            try
+            {
+                using var http = new HttpClient();
+
+                using var request = new HttpRequestMessage(
+                    HttpMethod.Post,
+                    BrevoUrl)
+                {
+                    Content = new StringContent(
+                        JsonSerializer.Serialize(payload),
+                        Encoding.UTF8,
+                        "application/json")
+                };
+
+                request.Headers.Add("accept", "application/json");
+                request.Headers.Add("api-key", apiKey);
+
+                using var response = await http.SendAsync(request);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var body = await response.Content.ReadAsStringAsync();
+
+                    _logger.LogError($"Failed to send Merchant Approval email (Brevo {(int)response.StatusCode}): {body}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send Merchant Approval email.");
+            }
+
+        }
     }
 }

@@ -146,19 +146,13 @@ namespace DigitalWalletApi.Controllers
             _logger.LogInformation("Assigning wallet to merchant user with email: {Email}", registerRequestDto.Email);
             user.Wallet = wallet.Data;
 
-            var base64 = _qrCodeService.GenerateQRCodeAsync(user.Wallet.WalletNumber.ToString()).Result;
+            var base64 = _qrCodeService.GenerateQRCodeAsync(wallet.Data.WalletNumber.ToString()).Result;
             user.Merchant.QRCodeString = base64;
-            _logger.LogInformation("Generating email confirmation token for merchant user with email: {Email}", registerRequestDto.Email);
-            var verifyToken = await _userManager.GenerateEmailConfirmationTokenAsync(user);
 
-            _logger.LogInformation("Enqueuing background job to send verification email to merchant user with email: {Email}", registerRequestDto.Email);
-            BackgroundJob.Enqueue<IEmailService>(x =>
-               x.SendMerchantApprovalEmail(
-                    schoolAdmins[0], // Assuming the first school admin is the one to notify
-                    "SchoolAdmin",
-                     registerRequestDto.BusinessName,
-                     user.Email,
-                     DateTime.UtcNow));
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Generating email confirmation token for merchant user with email: {Email}", registerRequestDto.Email);
+            var verifyToken = await _userManager.GenerateEmailConfirmationTokenAsync(user);          
 
             _logger.LogInformation("Enqueuing background job to send verification email to merchant user with email: {Email}", registerRequestDto.Email);
             BackgroundJob.Enqueue<IEmailService>(x =>
@@ -166,7 +160,16 @@ namespace DigitalWalletApi.Controllers
                    user.FirstName,
                    user.Email,
                      verifyToken,
-                   wallet.Data.WalletNumber));
+                   wallet.Data.WalletNumber));  
+
+
+            BackgroundJob.Enqueue<IEmailService>(x =>
+               x.SendMerchantApprovalEmail(
+                    schoolAdmins[0], // Assuming the first school admin is the one to notify
+                    "SchoolAdmin",
+                     registerRequestDto.BusinessName,
+                     user.Email,
+                     DateTime.UtcNow));
 
             _logger.LogInformation("Merchant registration process completed successfully for email: {Email}", registerRequestDto.Email);
             var responseDto = registerRequestDto.ToMerchantRegisterResponseDto(user.Merchant.Id, wallet.Data.WalletNumber, accountName, bankName, profilePictureUrl,"User registered successfully, Check your mail to activate your account and get your Wallet Number.");
@@ -262,7 +265,7 @@ namespace DigitalWalletApi.Controllers
         [ServiceFilter(typeof(LogActionFilter))]
         [HttpGet("View/qrcode")]
         [Authorize(Roles = "Merchant")]
-        public IActionResult GenerateQr()
+        public IActionResult ViewQr()
         {
             var UserId = User.GetUserId();
             var user = _context.Users
@@ -270,6 +273,36 @@ namespace DigitalWalletApi.Controllers
                 .FirstOrDefault(x => x.Id == UserId);
 
             var base64 = Convert.FromBase64String(user.Merchant.QRCodeString);
+
+            return Ok(base64);
+        }
+
+        [ServiceFilter(typeof(LogActionFilter))]
+        [HttpGet("generate/qrcode")]
+        [Authorize(Roles = "Merchant")]
+        public async Task<IActionResult> GenerateQr()
+        {
+            var userId = User.GetUserId();
+
+            var user = await _context.Users
+                .Include(x => x.Wallet)
+                .Include(x => x.Merchant)
+                .FirstOrDefaultAsync(x => x.Id == userId);
+
+            if (user == null)
+                return NotFound("User not found.");
+
+            if (user.Wallet == null)
+                return BadRequest("Wallet not found.");
+
+            if (user.Merchant == null)
+                return BadRequest("Merchant not found.");
+
+            var base64 = await _qrCodeService.GenerateQRCodeAsync(user.Wallet.WalletNumber);
+
+            user.Merchant.QRCodeString = base64;
+
+            await _context.SaveChangesAsync();
 
             return Ok(base64);
         }

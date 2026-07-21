@@ -158,6 +158,22 @@ namespace DigitalWalletApi.Controllers
             }
 
             [ServiceFilter(typeof(LogActionFilter))]
+            [HttpGet("RejectMerchant")]
+            [Authorize(Roles = "SchoolAdmin")]
+            public async Task<IActionResult> RejectMerchant([FromQuery] string merchantId)
+            {
+                _logger.LogInformation("Received request to reject merchant with ID: {MerchantId}", merchantId);
+                var result = await _authService.RejectMerchantAsync(Guid.Parse(merchantId));
+                if (!result)
+                {
+                    _logger.LogWarning("Failed to reject merchant with ID: {MerchantId}", merchantId);
+                    return BadRequest("Failed to reject merchant.");
+                }
+                _logger.LogInformation("Merchant with ID: {MerchantId} rejected successfully", merchantId);
+                return Ok("Merchant rejected successfully");
+            }
+
+            [ServiceFilter(typeof(LogActionFilter))]
             [HttpGet("profile")]
             [Authorize(Roles = "SchoolAdmin")]
             public async Task<IActionResult> GetStudentProfile()

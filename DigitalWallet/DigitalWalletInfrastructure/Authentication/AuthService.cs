@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Hangfire;
 using DigitalWalletCore.Interfaces;
 using DigitalWalletInfrastructure.Data;
 using DigitalWalletCore.Exceptions;
@@ -231,7 +232,9 @@ namespace DigitalWalletInfrastructure.Authentication
 
         public async Task<bool> ApproveMerchantAsync(Guid merchantId)
         {
-            var merchant = await _context.Merchant.FirstOrDefaultAsync(m => m.Id == merchantId);
+            var merchant = await _context.Merchant
+            .Include(m => m.User)
+            .FirstOrDefaultAsync(m => m.Id == merchantId);
             if (merchant == null)
             {
                 _logger.LogWarning("No merchant found with ID {MerchantId}", merchantId);
@@ -240,13 +243,25 @@ namespace DigitalWalletInfrastructure.Authentication
 
             merchant.IsApproved = true;
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Enqueing Email");
+
+            BackgroundJob.Enqueue<IEmailService>(emailService =>
+                 emailService.SendMerchantApprovalResponseEmail(
+                    true,
+                    merchant.BusinessName,
+                    merchant.User.Email,
+                    DateTime.UtcNow));
+
             _logger.LogInformation("Merchant with ID {MerchantId} approved successfully", merchantId);
             return true;    
         }
 
         public async Task<bool> RejectMerchantAsync(Guid merchantId)
         {
-            var merchant = await _context.Merchant.FirstOrDefaultAsync(m => m.Id == merchantId);
+            var merchant = await _context.Merchant
+            .Include(m => m.User)
+            .FirstOrDefaultAsync(m => m.Id == merchantId);
             if (merchant == null)
             {
                 _logger.LogWarning("No merchant found with ID {MerchantId}", merchantId);
@@ -255,6 +270,16 @@ namespace DigitalWalletInfrastructure.Authentication
 
             merchant.IsApproved = false;
             await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Enqueing Email");
+
+            BackgroundJob.Enqueue<IEmailService>(emailService =>
+                 emailService.SendMerchantApprovalResponseEmail(
+                    false,
+                    merchant.BusinessName,
+                    merchant.User.Email,
+                    DateTime.UtcNow));
+
             _logger.LogInformation("Merchant with ID {MerchantId} rejected successfully", merchantId);
             return true;
         }

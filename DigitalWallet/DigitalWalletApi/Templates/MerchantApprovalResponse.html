@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Merchant Application Update</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f7;
+            color: #333;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: #ffffff;
+            max-width: 600px;
+            margin: auto;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .details {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+
+        .button {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 12px 24px;
+            background-color: #16a34a;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #999;
+            margin-top: 40px;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h2 style="color: {{status_color}};">
+            Merchant Application {{decision}}
+        </h2>
+
+        <p>Hello {{business_name}},</p>
+
+        <p>
+            We have reviewed your merchant registration request on <strong>Campus Pay</strong>.
+        </p>
+
+        <div class="details">
+
+            <strong>Business Name:</strong> {{business_name}} <br />
+            <strong>Merchant Email:</strong> {{merchant_email}} <br />
+            <strong>Decision:</strong> {{decision}} <br />
+            <strong>Date:</strong> {{decision_date}}
+
+        </div>
+
+        <a href="{{login_link}}" class="button">
+            {{login_link2}}
+        </a>
+
+        <p>
+            If you have any questions, please contact your school administrator or Campus Pay Support.
+        </p>
+
+        <p>
+            Best regards,<br />
+            Campus Pay Team
+        </p>
+
+    </div>
+
+    <div class="footer">
+        &copy; 2026 Campus Pay. All rights reserved.
+    </div>
+
+</body>
+
+</html>
