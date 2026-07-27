@@ -1,5 +1,9 @@
-const configuredBase = (import.meta.env.VITE_API_BASE_URL || import.meta.env.EXPO_PUBLIC_API_BASE_URL || '').replace(/\/$/, '')
+const configuredBase = (import.meta.env.VITE_API_BASE_URL || import.meta.env.EXPO_PUBLIC_API_BASE_URL || 'https://campus-pay-na3y.onrender.com').replace(/\/$/, '')
 const BASE = configuredBase ? `${configuredBase}/api/v1.0` : '/api/v1.0'
+
+export function getApiBaseUrl() {
+  return configuredBase || window.location.origin
+}
 
 export class ApiError extends Error {
   status: number
