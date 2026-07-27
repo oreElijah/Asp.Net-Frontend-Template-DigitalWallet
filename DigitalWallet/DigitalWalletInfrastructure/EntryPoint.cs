@@ -121,8 +121,21 @@ namespace DigitalWalletInfrastructure
                             return;
                         }
 
-                        var cache = context.HttpContext.RequestServices.GetRequiredService<IDistributedCache>();
+                        var cache = context.HttpContext.RequestServices.GetService<IDistributedCache>();
+
+                        if (cache is null)
+                        {
+                            // Redis isn't configured. Skip token blacklist validation.
+                            return;
+                        }
+
                         var revoked = await cache.GetStringAsync(jti);
+
+                        if (!string.IsNullOrWhiteSpace(revoked))
+                        {
+                            context.Fail("Token has been revoked.");
+                        }
+                        
                         if (!string.IsNullOrWhiteSpace(revoked))
                         {
                             context.Fail("Token has been revoked.");
