@@ -93,5 +93,17 @@ namespace DigitalWalletApi.Controllers
             _logger.LogInformation("Returning result for lock/unlock wallet {WalletId} for user {UserId}", request.WalletNumber, userId);
             return Ok(result);
         }
+
+        [ServiceFilter(typeof(LogActionFilter))]
+        [HttpGet("Statement")]
+        [Authorize]
+        public async Task<IActionResult> GetWalletStatement([FromQuery] WalletStatementRequestDto requestDto)
+        {
+            _logger.LogInformation("GetWalletStatement called by user {UserId}", User.GetUserId());
+            var userId = User.GetUserId();
+            var query = new GetWalletStatementQuery(userId, requestDto);
+            var result = await _sender.Send(query);
+            return Ok(result);
+        }
     }
 }

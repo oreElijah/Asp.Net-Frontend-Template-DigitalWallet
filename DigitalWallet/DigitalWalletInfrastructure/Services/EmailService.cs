@@ -42,8 +42,7 @@ namespace DigitalWalletInfrastructure.Services
                 throw new NotFoundException("User with email not found");
             }
 
-            user.PasswordHash = _userManager.PasswordHasher.HashPassword(user, newPassword);
-            var result = await _userManager.UpdateAsync(user);
+            var result = await _userManager.ResetPasswordAsync(user, token, newPassword);
 
             if (!result.Succeeded)
             {

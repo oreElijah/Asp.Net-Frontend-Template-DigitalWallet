@@ -33,5 +33,7 @@ namespace DigitalWalletCore.Interfaces
         public Task<AppResponse<bool>> LockOrUnlockWalletAsync(string walletNumber);
 
         public Task<AppResponse<WalletResponseDto>> GetWalletDetailsById(Guid walletId, string userId);
+
+        public Task<AppResponse<WalletStatementResponseDto>> GetWalletStatementAsync(string userId, WalletStatementRequestDto requestDto);
     }
 }

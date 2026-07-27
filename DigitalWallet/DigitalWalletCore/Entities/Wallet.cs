@@ -16,7 +16,7 @@ namespace DigitalWalletCore.Entities
 
         public bool IsLocked { get; set; } = false;
 
-        public string? Pin { get; set; } = "0000";
+        public string PinHash { get; set; } = string.Empty;
 
         public string UserId { get; set; } = string.Empty;  
 

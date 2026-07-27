@@ -183,6 +183,8 @@ namespace DigitalWalletInfrastructure.Services
             if (transaction.Status == TransactionStatus.Pending)
             {
                 transaction.Status = TransactionStatus.Successful;
+                transaction.ReceiverBalanceBefore = transaction.ReceiverWallet.Balance;
+                transaction.ReceiverBalanceAfter = transaction.ReceiverWallet.Balance + transaction.Amount;
                 transaction.ReceiverWallet.Balance += transaction.Amount;
                 transaction.ReceiverWallet.LastUpdatedAt = DateTime.UtcNow;
                 transaction.ReceiverWallet.ReceivedTransactions.Add(transaction);
@@ -429,6 +431,8 @@ namespace DigitalWalletInfrastructure.Services
 
             _logger.LogInformation("Withdrawal successful for reference: {Reference}. Updating transaction status to successful and updating sender wallet balance.", reference);
             transaction.Status = TransactionStatus.Successful;
+            transaction.SenderBalanceBefore = transaction.SenderWallet.Balance + transaction.SenderWallet.LockedBalance;
+            transaction.SenderBalanceAfter = transaction.SenderWallet.Balance;
             transaction.SenderWallet.LockedBalance =
                 Math.Max(
                     0,

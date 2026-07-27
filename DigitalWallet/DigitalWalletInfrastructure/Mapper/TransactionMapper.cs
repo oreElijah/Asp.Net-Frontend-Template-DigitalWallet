@@ -136,10 +136,30 @@ namespace DigitalWalletInfrastructure.Mapper
                 SenderWalletNumber = WalletNumber,
                 ReceiverWalletId = receiverWalletId,
                 ReceiverWalletNumber = transferDto.ReceiverWalletNumber,
-                
+
                 Description = transferDto.Description,
 
                 CreatedAt = DateTime.UtcNow
+            };
+        }
+        
+        public static TransactionStatementDto ToTransactionStatementDto(this Transaction transaction, Wallet wallet)
+        {
+            var isCredit = transaction.ReceiverWalletNumber == wallet.WalletNumber;
+            return new TransactionStatementDto
+            {
+                Id = transaction.Id,
+                Reference = transaction.Reference,
+                Description = transaction.Description,
+                Amount = transaction.Amount,
+                Type = transaction.Type,
+                Status = transaction.Status,
+                CreatedAt = transaction.CreatedAt,
+                IsCredit = isCredit,
+                SenderName = wallet.User.FirstName + " " + wallet.User.LastName,
+                SenderWallet = transaction.SenderWalletNumber,
+                BalanceBefore = isCredit ? transaction.ReceiverBalanceBefore : transaction.SenderBalanceBefore,
+                BalanceAfter = isCredit? transaction.ReceiverBalanceAfter : transaction.SenderBalanceAfter
             };
         }
     }

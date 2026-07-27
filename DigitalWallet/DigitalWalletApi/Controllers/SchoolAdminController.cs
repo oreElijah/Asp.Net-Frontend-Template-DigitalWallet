@@ -127,7 +127,7 @@ namespace DigitalWalletApi.Controllers
 
             [ServiceFilter(typeof(LogActionFilter))]
             [HttpPost("Create-SchoolAdmin")]
-            [Authorize(Roles = "SchoolAdmin")]
+            [Authorize(Roles = "Admin")]
             public async Task<IActionResult> CreateSchoolAdmin([FromBody] CreateSchoolAdminDto createSchoolAdminDto)
             {
                 _logger.LogInformation("Received request to create school admin for email: {Email}", createSchoolAdminDto.Email);
@@ -142,12 +142,14 @@ namespace DigitalWalletApi.Controllers
             }
 
             [ServiceFilter(typeof(LogActionFilter))]
-            [HttpGet("ApproveMerchant")]
+            [HttpPost("ApproveMerchant")]
             [Authorize(Roles = "SchoolAdmin")]
             public async Task<IActionResult> ApproveMerchant([FromQuery] string merchantId)
             {
                 _logger.LogInformation("Received request to approve merchant with ID: {MerchantId}", merchantId);
-                var result = await _authService.ApproveMerchantAsync(Guid.Parse(merchantId));
+                if (!Guid.TryParse(merchantId, out var parsedMerchantId)) return BadRequest("Invalid merchant ID.");
+                var schoolCode = await _context.Users.Where(u => u.Id == User.GetUserId()).Select(u => u.SchoolCode).SingleOrDefaultAsync();
+                var result = await _authService.ApproveMerchantAsync(parsedMerchantId, schoolCode, User.GetUserId());
                 if (!result)
                 {
                     _logger.LogWarning("Failed to approve merchant with ID: {MerchantId}", merchantId);
@@ -158,12 +160,14 @@ namespace DigitalWalletApi.Controllers
             }
 
             [ServiceFilter(typeof(LogActionFilter))]
-            [HttpGet("RejectMerchant")]
+            [HttpPost("RejectMerchant")]
             [Authorize(Roles = "SchoolAdmin")]
             public async Task<IActionResult> RejectMerchant([FromQuery] string merchantId)
             {
                 _logger.LogInformation("Received request to reject merchant with ID: {MerchantId}", merchantId);
-                var result = await _authService.RejectMerchantAsync(Guid.Parse(merchantId));
+                if (!Guid.TryParse(merchantId, out var parsedMerchantId)) return BadRequest("Invalid merchant ID.");
+                var schoolCode = await _context.Users.Where(u => u.Id == User.GetUserId()).Select(u => u.SchoolCode).SingleOrDefaultAsync();
+                var result = await _authService.RejectMerchantAsync(parsedMerchantId, schoolCode, User.GetUserId());
                 if (!result)
                 {
                     _logger.LogWarning("Failed to reject merchant with ID: {MerchantId}", merchantId);

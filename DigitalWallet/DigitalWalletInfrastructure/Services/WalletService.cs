@@ -181,5 +181,24 @@ namespace DigitalWalletInfrastructure.Services
             _logger.LogInformation("Successfully locked or unlocked wallet with number {WalletNumber}", walletNumber);
             return response;
         }
+
+        public async Task<AppResponse<WalletStatementResponseDto>> GetWalletStatementAsync(string userId, WalletStatementRequestDto requestDto)
+        {
+            var response = await _walletRepo.GetWalletStatementAsync(userId, requestDto);
+
+            if (response == null)
+            {
+                _logger.LogError("Failed to retrieve wallet statement for user {UserId}", userId);
+                return new AppResponse<WalletStatementResponseDto>()
+                {
+                    Succeeded = false,
+                    Message = "Failed to retrieve wallet statement"
+                };
+            }
+
+            _logger.LogInformation("Successfully retrieved wallet statement for user {UserId}", userId);
+            return response;
+        }
+
     }
 }

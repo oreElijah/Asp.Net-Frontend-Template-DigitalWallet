@@ -49,6 +49,9 @@ namespace DigitalWalletInfrastructure
                 options.Password.RequireNonAlphanumeric = true;
                 options.Password.RequireUppercase = true;
                 options.Password.RequiredLength = 8;
+                options.Lockout.AllowedForNewUsers = true;
+                options.Lockout.MaxFailedAccessAttempts = 5;
+                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
             })
             .AddEntityFrameworkStores<ApplicationDbContext>()
             .AddDefaultTokenProviders();
@@ -153,6 +156,8 @@ namespace DigitalWalletInfrastructure
             services.AddScoped<IWalletService, WalletService>();
             services.AddScoped<IFileStorageService, BackBlazeStorageService>();
             services.AddScoped<IQRCodeService, QRCodeService>();
+            services.AddScoped<IAnalyticsService, AnalyticsService>();
+            services.AddScoped<IAuditService, AuditService>();
             return services;
         }
     }

@@ -5,6 +5,7 @@ using DigitalWalletCore.Dtos.User;
 using DigitalWalletCore.Entities;
 using DigitalWalletCore.Interfaces;
 using DigitalWalletInfrastructure.Mapper;
+using DigitalWalletInfrastructure.Data;
 using Hangfire;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Google;
@@ -28,8 +29,10 @@ namespace DigitalWalletApi.Controllers
         private readonly IEmailService _emailService;
         private readonly IWebHostEnvironment _env;
         private readonly ILogger<AccountController> _logger;
+        private readonly ApplicationDbContext _context;
+        private readonly IAuditService _auditService;
 
-        public AccountController(UserManager<AppUser> userManager, IAuthService authService, IWalletService walletService, IEmailService emailService, IWebHostEnvironment env, ILogger<AccountController> logger, IPaymentService paystackService)
+        public AccountController(UserManager<AppUser> userManager, IAuthService authService, IWalletService walletService, IEmailService emailService, IWebHostEnvironment env, ILogger<AccountController> logger, IPaymentService paystackService, ApplicationDbContext context, IAuditService auditService)
         {
             _userManager = userManager;
             _authService = authService;
@@ -38,6 +41,8 @@ namespace DigitalWalletApi.Controllers
             _paystackService = paystackService;
             _logger = logger;
             _env = env;
+            _context = context;
+            _auditService = auditService;
         }
 
         private void WriteAuthTokenCookie(string name, string value, TimeSpan lifetime)
@@ -223,27 +228,33 @@ namespace DigitalWalletApi.Controllers
                }
 
                _logger.LogInformation("Attempting to find user by wallet number: {WalletNumber}", loginDto.WalletNumber);
-               var user = await _authService.FindUserByWalletNumberAsync(loginDto.WalletNumber);
+                AppUser? user;
+                try { user = await _authService.FindUserByWalletNumberAsync(loginDto.WalletNumber); }
+                catch { return Unauthorized("Invalid credentials."); }
 
                if (user == null)
                {
                    _logger.LogWarning("User not found for wallet number: {WalletNumber}", loginDto.WalletNumber);
-                   return Unauthorized("Invalid Email or username");
+                    return Unauthorized("Invalid credentials.");
                }
 
                if (!await _userManager.IsEmailConfirmedAsync(user))
                {
                    _logger.LogWarning("Email not confirmed for user with wallet number: {WalletNumber}", loginDto.WalletNumber);
-                   return Unauthorized("Please verify your email before logging in.");
-               }
+                    return Unauthorized("Invalid credentials.");
+                }
+
+                if (user.IsDeactivated) return Unauthorized("Invalid credentials.");
 
                _logger.LogInformation("Checking password for user with wallet number: {WalletNumber}", loginDto.WalletNumber);
                var passwordValid = await _userManager.CheckPasswordAsync(user, loginDto.Password);
-               if (!passwordValid)
-               {
+                if (!passwordValid)
+                {
+                    await _userManager.AccessFailedAsync(user);
                    _logger.LogWarning("Invalid password for user with wallet number: {WalletNumber}", loginDto.WalletNumber);
-                   return Unauthorized("Invalid password");
-               }
+                    return Unauthorized("Invalid credentials.");
+                }
+                await _userManager.ResetAccessFailedCountAsync(user);
 
                if (user.Merchant != null && !user.Merchant.IsApproved)
                {
@@ -255,11 +266,8 @@ namespace DigitalWalletApi.Controllers
                var token = await _authService.CreateToken(user);
                var refreshToken = await _authService.CreateRefreshToken(user);
 
-               _logger.LogInformation("Writing access and refresh tokens to cookies for user with wallet number: {WalletNumber}", loginDto.WalletNumber);
-               WriteAuthTokenCookie("ACCESS_TOKEN", token, TimeSpan.FromHours(1));
-               WriteAuthTokenCookie("REFRESH_TOKEN", refreshToken, TimeSpan.FromDays(7));
-
-               var responsedto = loginDto.ToLoginResponseDto(user, token);
+                var responsedto = loginDto.ToLoginResponseDto(user, token);
+                responsedto.RefreshToken = refreshToken;
                 
                _logger.LogInformation("Login process completed successfully for user with wallet number: {WalletNumber}", loginDto.WalletNumber);
                return Ok(responsedto);
@@ -267,7 +275,7 @@ namespace DigitalWalletApi.Controllers
            catch (Exception ex)
            {
                _logger.LogError(ex, "An error occurred during login for wallet number: {WalletNumber}", loginDto.WalletNumber);
-               return StatusCode(500, $"Internal server error: {ex.Message}");
+                return StatusCode(500, "An unexpected error occurred.");
            }
         }
 
@@ -393,7 +401,7 @@ namespace DigitalWalletApi.Controllers
            catch (Exception ex)
            {
                _logger.LogError(ex, "Email verification failed for user with email: {Email}", email);
-               return BadRequest($"Email verification failed: {ex.Message}");
+                return BadRequest("Email verification failed. The link may be invalid or expired.");
            }
         }
 
@@ -410,10 +418,19 @@ namespace DigitalWalletApi.Controllers
                return BadRequest("Token jti is missing.");
            }
 
-           await _authService.Logout(jti);
+            await _authService.Logout(jti);
+            await _authService.RevokeUserRefreshTokensAsync(User.GetUserId());
 
            _logger.LogInformation("Clearing authentication cookies for user with ID: {UserId}", User.GetUserId());
-           return Ok("Logged out successfully");
+            return Ok("Logged out successfully");
+        }
+
+        [HttpPost("refresh")]
+        [AllowAnonymous]
+        public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequestDto request)
+        {
+            var result = await _authService.RefreshTokenAsync(request.RefreshToken);
+            return result is null ? Unauthorized("Invalid or expired refresh token.") : Ok(result);
         }
 
         [ServiceFilter(typeof(LogActionFilter))]
@@ -453,8 +470,9 @@ namespace DigitalWalletApi.Controllers
                return BadRequest(result.Errors);
            }
 
-           _logger.LogInformation("Password changed successfully for user with ID: {UserId}", userId);
-           return Ok("Password changed successfully");
+            _logger.LogInformation("Password changed successfully for user with ID: {UserId}", userId);
+            await _authService.RevokeUserRefreshTokensAsync(userId);
+            return Ok("Password changed successfully");
         }
 
         //[ServiceFilter(typeof(LogActionFilter))]
@@ -490,7 +508,7 @@ namespace DigitalWalletApi.Controllers
            var userId = User.GetUserId();
            _logger.LogInformation("Received request to delete profile for user with ID: {UserId}", userId);
 
-           var user = await _userManager.FindByIdAsync(userId);
+            var user = await _context.Users.Include(u => u.Wallet).FirstOrDefaultAsync(u => u.Id == userId);
            if (user == null)
            {
                _logger.LogWarning("User not found with ID: {UserId}", userId);
@@ -498,7 +516,11 @@ namespace DigitalWalletApi.Controllers
            }
 
            _logger.LogInformation("Attempting to delete profile for user with ID: {UserId}", userId);
-           user.Wallet.IsLocked = true;
+            user.IsDeactivated = true;
+            if (user.Wallet != null) user.Wallet.IsLocked = true;
+            await _context.SaveChangesAsync();
+            await _authService.RevokeUserRefreshTokensAsync(userId);
+            await _auditService.RecordAsync("AccountDeactivated", nameof(AppUser), userId, userId);
             
            _logger.LogInformation("Profile deleted successfully for user with ID: {UserId}", userId);
            return Ok("User deleted successfully");
@@ -511,11 +533,7 @@ namespace DigitalWalletApi.Controllers
         {
            _logger.LogInformation("Received forgot password request for email: {Email}", emailDto.Email);
            var user = await _userManager.FindByEmailAsync(emailDto.Email);
-           if (user == null)
-           {
-               _logger.LogWarning("User not found for email: {Email}", emailDto.Email);
-               return NotFound("User not found");
-           }
+            if (user == null) return Ok("If the account exists, a password-reset email has been sent.");
 
            _logger.LogInformation("Generating password reset token for user with email: {Email}", emailDto.Email);
            var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
@@ -528,8 +546,7 @@ namespace DigitalWalletApi.Controllers
                resetToken));
             
            _logger.LogInformation("Enqueued forgot password email for user with email: {Email}", emailDto.Email);
-           return Ok($"Email : {user.Email}\t" +
-               $"Token : {resetToken}");
+            return Ok("If the account exists, a password-reset email has been sent.");
         }
 
        
@@ -723,7 +740,7 @@ namespace DigitalWalletApi.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Password reset failed for user with email: {Email}", email);
-                return BadRequest($"Password reset failed: {ex.Message}");
+                return BadRequest("Password reset failed. The link may be invalid or expired.");
             }
         }
     }

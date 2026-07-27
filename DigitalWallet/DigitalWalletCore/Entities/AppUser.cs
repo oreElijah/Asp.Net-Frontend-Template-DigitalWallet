@@ -26,5 +26,9 @@ namespace DigitalWalletCore.Entities
         public Wallet? Wallet { get; set; } = new Wallet();
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        public bool IsDeactivated { get; set; }
+
+        public List<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
     }
 }

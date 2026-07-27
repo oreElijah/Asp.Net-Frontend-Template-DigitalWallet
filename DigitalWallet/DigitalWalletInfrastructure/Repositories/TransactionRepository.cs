@@ -15,6 +15,8 @@ using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Text;
+using System.Data;
+using Microsoft.AspNetCore.Identity;
 
 namespace DigitalWalletInfrastructure.Repositories
 {
@@ -25,19 +27,23 @@ namespace DigitalWalletInfrastructure.Repositories
         private readonly IQRCodeService _qrCodeService;
         private readonly IWalletService _walletService;
         private readonly ILogger<TransactionRepository> _logger;
+        private readonly IAuditService _auditService;
+        private static readonly PasswordHasher<Wallet> PinHasher = new();
 
-        public TransactionRepository(ApplicationDbContext context, IPaymentService paymentService, IWalletService walletService, ILogger<TransactionRepository> logger, IQRCodeService qrCodeService)
+        public TransactionRepository(ApplicationDbContext context, IPaymentService paymentService, IWalletService walletService, ILogger<TransactionRepository> logger, IQRCodeService qrCodeService, IAuditService auditService)
         {
             _context = context;
             _paymentService = paymentService;
             _walletService = walletService;
             _logger = logger;
             _qrCodeService = qrCodeService;
+            _auditService = auditService;
         }
 
 
         public async Task<AppResponse<DepositResponseDto>> DepositAsync(DepositDto depositDto, string userId)
         {
+            if (!IsValidAmount(depositDto.Amount)) return InvalidAmountResponse<DepositResponseDto>();
             _logger.LogInformation("Starting deposit process for user {UserId} with amount {Amount}", userId, depositDto.Amount);
             var wallet = await _context.Wallet
                 .FirstOrDefaultAsync(w => w.UserId == userId);
@@ -72,7 +78,7 @@ namespace DigitalWalletInfrastructure.Repositories
             //Deposit From payment gateway to wallet logic would be here
             _logger.LogInformation("Initializing deposit with payment service for transaction ID {TransactionId} and wallet number {WalletNumber}", transaction.Id, wallet.WalletNumber);
             var paymentResponse = await _paymentService.InitializeDepositAsync(transaction.Id, wallet.WalletNumber);
-            
+
             if (!paymentResponse.Succeeded)
             {
                 _logger.LogWarning("Failed to initialize deposit for transaction ID {TransactionId} and wallet number {WalletNumber}", transaction.Id, wallet.WalletNumber);
@@ -143,7 +149,8 @@ namespace DigitalWalletInfrastructure.Repositories
 
         public async Task<AppResponse<TransactionDto>> ScanToChargeWalletAsync(BarcodeScanDto request, decimal amount, string userId, string pin)
         {
-            using var dbTransaction = await _context.Database.BeginTransactionAsync();
+            if (!IsValidAmount(amount)) return InvalidAmountResponse<TransactionDto>();
+            using var dbTransaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
             try
             {
                 var barCode = request.BarCode;
@@ -200,7 +207,7 @@ namespace DigitalWalletInfrastructure.Repositories
                     ReceiverWalletNumber = receiverWallet.WalletNumber
                 };
 
-                var response = await ProcessTransactionAsync(senderWallet, receiverWallet, transferDto, dbTransaction);
+                var response = await ProcessTransactionAsync(senderWallet, receiverWallet, transferDto, dbTransaction, TransactionType.SantoPay);
 
                 return response;
             }            
@@ -217,7 +224,7 @@ namespace DigitalWalletInfrastructure.Repositories
             }
         }
 
-        private async Task<AppResponse<TransactionDto>> ProcessTransactionAsync(Wallet senderWallet, Wallet receiverWallet,TransferDto transferDto, IDbContextTransaction dbTransaction)
+        private async Task<AppResponse<TransactionDto>> ProcessTransactionAsync(Wallet senderWallet, Wallet receiverWallet,TransferDto transferDto, IDbContextTransaction dbTransaction, TransactionType transactionType = TransactionType.Transfer)
         {
 
             if (senderWallet.IsLocked || receiverWallet.IsLocked)
@@ -239,7 +246,7 @@ namespace DigitalWalletInfrastructure.Repositories
                 };
             }
 
-            if (senderWallet.Pin != transferDto.Pin)
+            if (PinHasher.VerifyHashedPassword(senderWallet, senderWallet.PinHash, transferDto.Pin) == PasswordVerificationResult.Failed)
             {
                 _logger.LogWarning("Incorrect pin provided for transfer by user {UserId} and wallet {SenderWalletNumber}", senderWallet.UserId, senderWallet.WalletNumber);
                 return new AppResponse<TransactionDto>
@@ -248,12 +255,20 @@ namespace DigitalWalletInfrastructure.Repositories
                     Message = "Incorrect pin."
                 };
             }
+            var transaction = transferDto.ToTransactionFromTransfer(senderWallet.WalletNumber, TransactionStatus.Successful, senderWallet.Id, receiverWallet.Id);
+            transaction.Type = transactionType;
+
+            transaction.SenderBalanceBefore = senderWallet.Balance;
+            transaction.SenderBalanceAfter = senderWallet.Balance - transferDto.Amount;
+            transaction.ReceiverBalanceBefore = receiverWallet.Balance;
+            transaction.ReceiverBalanceAfter = receiverWallet.Balance + transferDto.Amount;
 
             _logger.LogInformation("SenderWallet and ReceiverWallet were found, Carrying out transferring Logic");
             senderWallet.Balance -= transferDto.Amount;
             receiverWallet.Balance += transferDto.Amount;
+            senderWallet.LastUpdatedAt = DateTime.UtcNow;
+            receiverWallet.LastUpdatedAt = DateTime.UtcNow;
 
-            var transaction = transferDto.ToTransactionFromTransfer(senderWallet.WalletNumber, TransactionStatus.Successful, senderWallet.Id, receiverWallet.Id);
             await _context.Transaction.AddAsync(transaction);
 
             _logger.LogInformation("Transfer process completed successfully for user {ReceiverWallet} with amount {Amount}", receiverWallet.WalletNumber, transferDto.Amount);
@@ -266,6 +281,7 @@ namespace DigitalWalletInfrastructure.Repositories
             var newTransferDto = transaction.ToTransactionResponseDto2(receiverWallet, senderWallet);
 
             await dbTransaction.CommitAsync();
+            await _auditService.RecordAsync("WalletTransfer", nameof(Transaction), transaction.Id.ToString(), senderWallet.UserId, $"{{\"amount\":{transaction.Amount},\"type\":\"{transaction.Type}\"}}");
 
             BackgroundJob.Enqueue<IEmailService>(x =>
                 x.SendReceiverTransferSuccessfulEmail(
@@ -325,7 +341,8 @@ namespace DigitalWalletInfrastructure.Repositories
 
         public async Task<AppResponse<TransactionDto>> TransferAsync(TransferDto transferDto, string userId)
         {
-            using var dbTransaction = await _context.Database.BeginTransactionAsync();
+            if (!IsValidAmount(transferDto.Amount)) return InvalidAmountResponse<TransactionDto>();
+            using var dbTransaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
 
             try
             {
@@ -357,6 +374,9 @@ namespace DigitalWalletInfrastructure.Repositories
                     };
                 }
 
+                if (!string.Equals(senderWallet.User.SchoolCode, receiverWallet.User.SchoolCode, StringComparison.OrdinalIgnoreCase))
+                    return new AppResponse<TransactionDto> { Succeeded = false, Message = "Cross-school transfers are not permitted." };
+
                 var response = await ProcessTransactionAsync(senderWallet, receiverWallet, transferDto, dbTransaction);
 
                 return response;               
@@ -376,9 +396,10 @@ namespace DigitalWalletInfrastructure.Repositories
 
         public async Task<AppResponse<TransactionDto>> WithdrawAsync(WithdrawDto withdrawDto, string userId)
         {
+            if (!IsValidAmount(withdrawDto.Amount)) return InvalidAmountResponse<TransactionDto>();
             _logger.LogInformation("Starting withdrawal process for user {UserId} with amount {Amount}", userId, withdrawDto.Amount);
-            var wallet = _context.Wallet
-                .FirstOrDefault(w => w.UserId == userId);
+            await using var dbTransaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+            var wallet = await _context.Wallet.FirstOrDefaultAsync(w => w.UserId == userId);
 
             if (wallet == null)
             {
@@ -415,7 +436,7 @@ namespace DigitalWalletInfrastructure.Repositories
             var transaction = withdrawDto.ToTransactionFromWithdrawal(wallet.WalletNumber, TransactionStatus.Pending, "", wallet.Id);
 
             _logger.LogInformation("Checkin Pin for user {UserId} and wallet {WalletNumber}", userId, wallet.WalletNumber);
-            if (wallet.Pin != withdrawDto.Pin)
+            if (PinHasher.VerifyHashedPassword(wallet, wallet.PinHash, withdrawDto.Pin) == PasswordVerificationResult.Failed)
             {
                 _logger.LogWarning("Incorrect pin provided for withdrawal by user {UserId} and wallet {WalletNumber}", userId, wallet.WalletNumber);
                 return new AppResponse<TransactionDto>
@@ -451,5 +472,13 @@ namespace DigitalWalletInfrastructure.Repositories
                 Data = transaction.ToTransactionResponseDto()
             };
         }
+
+        private static bool IsValidAmount(decimal amount) => amount > 0 && amount <= 1_000_000m && decimal.Round(amount, 2) == amount;
+
+        private static AppResponse<T> InvalidAmountResponse<T>() => new()
+        {
+            Succeeded = false,
+            Message = "Amount must be positive, have at most two decimal places, and not exceed 1,000,000."
+        };
     }
 }

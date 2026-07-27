@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Security.Cryptography;
 using Hangfire;
 using DigitalWalletCore.Interfaces;
 using DigitalWalletInfrastructure.Data;
@@ -30,14 +31,16 @@ namespace DigitalWalletInfrastructure.Authentication
         private readonly ILogger<AuthService> _logger;
         private readonly IWebHostEnvironment _env;
         private readonly ApplicationDbContext _context;
+        private readonly IAuditService _auditService;
 
-        public AuthService(IConfiguration config, UserManager<AppUser> userManager, IDistributedCache cache, ILogger<AuthService> logger, IWebHostEnvironment env, ApplicationDbContext context)
+        public AuthService(IConfiguration config, UserManager<AppUser> userManager, IDistributedCache cache, ILogger<AuthService> logger, IWebHostEnvironment env, ApplicationDbContext context, IAuditService auditService)
         {
             _config = config;
             _userManager = userManager;
             _cache = cache;
             _env = env;
             _context = context;
+            _auditService = auditService;
             var signingKeyString = _config["JWT:SigningKey"]; // S6781: Key is loaded from secure source (User Secrets/Environment Variables, not from appsettings.json)
             if (string.IsNullOrWhiteSpace(signingKeyString))
             {
@@ -69,7 +72,7 @@ namespace DigitalWalletInfrastructure.Authentication
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.Now.AddHours(1),
+                Expires = DateTime.UtcNow.AddHours(1),
                 SigningCredentials = creds,
                 Issuer = _config["JWT:Issuer"],
                 Audience = _config["JWT:Audience"]
@@ -86,33 +89,40 @@ namespace DigitalWalletInfrastructure.Authentication
 
         public async Task<string> CreateRefreshToken(AppUser user)
         {
-            var claims = new List<Claim>
+            var rawToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+            _context.RefreshToken.Add(new RefreshToken
             {
-                new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
-                new Claim(JwtRegisteredClaimNames.Name, user.UserName ?? string.Empty),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-            };
-
-            var creds = new SigningCredentials(_key, SecurityAlgorithms.HmacSha512Signature);
-
-            var tokenDescriptor = new SecurityTokenDescriptor
-            {
-                Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.Now.AddDays(7),
-                SigningCredentials = creds,
-                Issuer = _config["JWT:Issuer"],
-                Audience = _config["JWT:Audience"]
-            };
-
-            var tokenHandler = new JwtSecurityTokenHandler();
-
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-
-            var finalToken = tokenHandler.WriteToken(token);
-
-            _logger.LogInformation("Refresh token created successfully for user {Email}", user.Email);
-            return finalToken;
+                Id = Guid.NewGuid(), UserId = user.Id, TokenHash = HashToken(rawToken),
+                CreatedAt = DateTime.UtcNow, ExpiresAt = DateTime.UtcNow.AddDays(7)
+            });
+            await _context.SaveChangesAsync();
+            return rawToken;
         }
+
+        public async Task<TokenResponseDto?> RefreshTokenAsync(string refreshToken)
+        {
+            var tokenHash = HashToken(refreshToken);
+            var storedToken = await _context.RefreshToken.Include(t => t.User)
+                .SingleOrDefaultAsync(t => t.TokenHash == tokenHash);
+            if (storedToken is null || !storedToken.IsActive || storedToken.User.IsDeactivated)
+                return null;
+
+            storedToken.RevokedAt = DateTime.UtcNow;
+            var nextRefreshToken = await CreateRefreshToken(storedToken.User);
+            storedToken.ReplacedByTokenHash = HashToken(nextRefreshToken);
+            await _context.SaveChangesAsync();
+
+            return new TokenResponseDto { AccessToken = await CreateToken(storedToken.User), RefreshToken = nextRefreshToken };
+        }
+
+        public async Task RevokeUserRefreshTokensAsync(string userId)
+        {
+            var activeTokens = await _context.RefreshToken.Where(t => t.UserId == userId && t.RevokedAt == null && t.ExpiresAt > DateTime.UtcNow).ToListAsync();
+            foreach (var token in activeTokens) token.RevokedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
+
+        private static string HashToken(string token) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 
         public async Task LoginWithGoogleAsync(ClaimsPrincipal claimsPrincipal, HttpContext context)
         {
@@ -230,11 +240,11 @@ namespace DigitalWalletInfrastructure.Authentication
             }
         }
 
-        public async Task<bool> ApproveMerchantAsync(Guid merchantId)
+        public async Task<bool> ApproveMerchantAsync(Guid merchantId, string schoolCode, string actorUserId)
         {
             var merchant = await _context.Merchant
             .Include(m => m.User)
-            .FirstOrDefaultAsync(m => m.Id == merchantId);
+            .FirstOrDefaultAsync(m => m.Id == merchantId && m.User.SchoolCode == schoolCode);
             if (merchant == null)
             {
                 _logger.LogWarning("No merchant found with ID {MerchantId}", merchantId);
@@ -243,6 +253,7 @@ namespace DigitalWalletInfrastructure.Authentication
 
             merchant.IsApproved = true;
             await _context.SaveChangesAsync();
+            await _auditService.RecordAsync("MerchantApproved", nameof(Merchant), merchantId.ToString(), actorUserId, "{\"approved\":true}");
 
             _logger.LogInformation("Enqueing Email");
 
@@ -257,11 +268,11 @@ namespace DigitalWalletInfrastructure.Authentication
             return true;    
         }
 
-        public async Task<bool> RejectMerchantAsync(Guid merchantId)
+        public async Task<bool> RejectMerchantAsync(Guid merchantId, string schoolCode, string actorUserId)
         {
             var merchant = await _context.Merchant
             .Include(m => m.User)
-            .FirstOrDefaultAsync(m => m.Id == merchantId);
+            .FirstOrDefaultAsync(m => m.Id == merchantId && m.User.SchoolCode == schoolCode);
             if (merchant == null)
             {
                 _logger.LogWarning("No merchant found with ID {MerchantId}", merchantId);
@@ -270,6 +281,7 @@ namespace DigitalWalletInfrastructure.Authentication
 
             merchant.IsApproved = false;
             await _context.SaveChangesAsync();
+            await _auditService.RecordAsync("MerchantRejected", nameof(Merchant), merchantId.ToString(), actorUserId, "{\"approved\":false}");
 
             _logger.LogInformation("Enqueing Email");
 

@@ -26,11 +26,19 @@ namespace DigitalWalletCore.Entities
 
         public Wallet? SenderWallet { get; set; }
 
+        public decimal SenderBalanceBefore { get; set; }
+
+        public decimal SenderBalanceAfter { get; set; }
+
         public string ReceiverWalletNumber { get; set; } = string.Empty;
 
         public Guid? ReceiverWalletId { get; set; }
 
         public Wallet? ReceiverWallet { get; set; }
+
+        public decimal ReceiverBalanceBefore { get; set; }
+        
+        public decimal ReceiverBalanceAfter { get; set; }
 
         public DateTime CreatedAt { get; set; }
     }

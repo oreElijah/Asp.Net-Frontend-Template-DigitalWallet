@@ -8,6 +8,8 @@ namespace DigitalWalletCore.Enums
     {
         Deposit = 0,
         Transfer = 1,
-        Withdrawal = 2
+        Withdrawal = 2,
+        QRPayment = 3,
+        ScantoPay = 4
     }
 }
