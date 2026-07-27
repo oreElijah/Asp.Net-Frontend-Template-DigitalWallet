@@ -32,16 +32,6 @@ app.UseMiddleware<GlobalExceptionHandler>();
 app.UseHttpsRedirection();
 
 app.UsePresentation();
-
-app.MapGet("/config-test", (IConfiguration config) =>
-{
-    return Results.Ok(new
-    {
-        HasSerilog = config.GetSection("Serilog").Exists(),
-        Environment = app.Environment.EnvironmentName
-    });
-});
-
 await app.SeedDatabaseAsync();
 
 await app.RunAsync();

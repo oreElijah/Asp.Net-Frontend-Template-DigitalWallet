@@ -131,11 +131,16 @@ namespace DigitalWalletInfrastructure
                 };
             });
 
-            services.AddStackExchangeRedisCache(options =>
+            var redisConnection = configuration["Redis:Configuration"];
+
+            if (!string.IsNullOrWhiteSpace(redisConnection))
             {
-                options.Configuration = configuration["Redis:Configuration"];
-                options.InstanceName = configuration["Redis:InstanceName"];
-            });
+                services.AddStackExchangeRedisCache(options =>
+                {
+                    options.Configuration = redisConnection;
+                    options.InstanceName = configuration["Redis:InstanceName"];
+                });
+            }
 
             services.AddHangfire(config =>
             {
