@@ -207,7 +207,7 @@ namespace DigitalWalletInfrastructure.Repositories
                     ReceiverWalletNumber = receiverWallet.WalletNumber
                 };
 
-                var response = await ProcessTransactionAsync(senderWallet, receiverWallet, transferDto, dbTransaction, TransactionType.SantoPay);
+                var response = await ProcessTransactionAsync(senderWallet, receiverWallet, transferDto, dbTransaction, TransactionType.ScantoPay);
 
                 return response;
             }            

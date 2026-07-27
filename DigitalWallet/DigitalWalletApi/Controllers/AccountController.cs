@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace DigitalWalletApi.Controllers
 {
@@ -506,9 +507,11 @@ namespace DigitalWalletApi.Controllers
         public async Task<IActionResult> DeleteProfile()
         {
            var userId = User.GetUserId();
-           _logger.LogInformation("Received request to delete profile for user with ID: {UserId}", userId);
+            _logger.LogInformation("Received request to delete profile for user with ID: {UserId}", userId);
 
-            var user = await _context.Users.Include(u => u.Wallet).FirstOrDefaultAsync(u => u.Id == userId);
+            // var user = await _context.Users.Include(u => u.Wallet).FirstOrDefaultAsync(u => u.Id == userId);
+            var user = await _userManager.FindByIdAsync(userId);
+            var wallet = await _context.Wallet.FirstOrDefaultAsync(w => w.UserId == userId);
            if (user == null)
            {
                _logger.LogWarning("User not found with ID: {UserId}", userId);
@@ -517,7 +520,7 @@ namespace DigitalWalletApi.Controllers
 
            _logger.LogInformation("Attempting to delete profile for user with ID: {UserId}", userId);
             user.IsDeactivated = true;
-            if (user.Wallet != null) user.Wallet.IsLocked = true;
+            if (wallet != null) wallet.IsLocked = true;
             await _context.SaveChangesAsync();
             await _authService.RevokeUserRefreshTokensAsync(userId);
             await _auditService.RecordAsync("AccountDeactivated", nameof(AppUser), userId, userId);
