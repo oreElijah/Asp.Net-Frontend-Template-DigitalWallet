@@ -1,0 +1,1093 @@
+Build a frontend UI for the DigitalWallet ASP.NET backend. The backend is exposed at /api/v1.0 and supports Students, Merchants, Admins, SchoolAdmins, Wallet operations, and Transaction operations. The frontend must match the backend API contracts, request/response DTOs, role-based routes, and data relationships.
+
+---
+
+## 1. Overview
+
+- Backend base path: /api/v1.0
+- Role-based access:
+  - Student
+  - Merchant
+  - Admin
+  - SchoolAdmin
+- Authentication is cookie-based:
+  - ACCESS_TOKEN
+  - REFRESH_TOKEN
+- Add UI pages for login, registration, dashboard, profile, transaction flows, wallet search, school management, merchant approval, and admin management.
+- Use API-friendly JSON plus multipart/form-data where required.
+- The frontend must support:
+  - login / logout
+  - registration with uploads
+  - profile view/update
+  - transaction history
+  - deposit, withdrawal, transfer, scan-to-charge
+  - wallet search and wallet transaction details
+  - school creation, update, delete, lookup
+  - admin/schooladmin controls
+
+---
+
+## 2. API route conventions
+
+The backend is versioned with v{version:apiVersion} and controller names form routes:
+
+- AccountController → /api/v1.0/Account/
+- StudentController → /api/v1.0/Student/
+- MerchantController → /api/v1.0/Merchant/
+- TransactionController → /api/v1.0/Transaction/
+- WalletController → /api/v1.0/Wallet/
+- SchoolController → /api/v1.0/School/
+- AdminController → /api/v1.0/Admin/
+- SchoolAdminController → /api/v1.0/SchoolAdmin/
+
+Routes are defined using ASP.NET Core attributes like [HttpGet], [HttpPost], [HttpPut], [HttpDelete].
+
+---
+
+## 3. Authentication and account routes
+
+### 3.1 Login
+- POST /api/v1.0/Account/login
+- Request body:
+  - WalletNumber
+  - Password
+- Response:
+  - UserId
+  - ProfilePicture
+  - Firstname
+  - Lastname
+  - SchoolCode
+  - Email
+  - WalletNumber
+  - Token
+- Notes:
+  - This is the primary login route for standard users.
+  - The backend checks email confirmation and merchant approval.
+  - Success sets cookies ACCESS_TOKEN and REFRESH_TOKEN.
+
+### 3.2 Logout
+- POST /api/v1.0/Account/logout
+- No request body
+- Requires authorization
+- Clears authentication state server-side
+
+### 3.3 Change password
+- POST /api/v1.0/Account/change_password
+- Request body:
+  - CurrentPassword
+  - NewPassword
+- Requires authorization
+- Only authenticated users can call this
+
+### 3.4 Forgot password
+- POST /api/v1.0/Account/forgot_password
+- Request body:
+  - Email
+- Sends password reset email
+- Response returns email and token in plain response text
+
+### 3.5 Reset password
+- POST /api/v1.0/Account/reset_password?email={email}&token={token}
+- Request body:
+  - Password
+- Email and reset token are passed in query parameters
+- The body contains new password
+
+### 3.6 Email verification
+- GET /api/v1.0/Account/verify_email?email={email}&token={token}
+- Verifies registration email
+- Query string contains both email and token
+- Returns success or failure message
+
+### 3.7 Google login flow
+- GET /api/v1.0/Account/login/google
+- GET /api/v1.0/Account/login/google/callback
+- OAuth redirect-based login
+- Not primary for frontend if using standard credentials
+- Should still support if external login is desired
+
+---
+
+## 4. Student API routes
+
+### 4.1 Student registration
+- POST /api/v1.0/Student/register
+- Requires multipart/form-data for file upload
+- Fields:
+  - Firstname
+  - Lastname
+  - ProfilePicture (optional file)
+  - MatricNumber
+  - SchoolCode
+  - Pin
+  - Password
+- Response:
+  - UserId
+  - ProfilePicture
+  - Firstname
+  - Lastname
+  - MatricNumber
+  - SchoolCode
+  - Email
+  - WalletNumber
+  - Message
+- Validation rules:
+  - Firstname required
+  - Lastname required
+  - MatricNumber required
+  - SchoolCode required
+  - Pin required, exactly 4 digits
+  - Password required
+  - Email required and must be valid
+
+### 4.2 Get student profile
+- GET /api/v1.0/Student/profile
+- Requires authorization, student role
+- Response:
+  - UserId
+  - ProfilePicture
+  - Firstname
+  - Lastname
+  - MatricNumber
+  - SchoolCode
+  - SchoolName
+  - Email
+  - WalletNumber
+
+### 4.3 Update student profile
+- PUT /api/v1.0/Student/update_profile
+- Requires authorization, student role
+- Multipart/form-data optional file
+- Fields:
+  - Firstname
+  - Lastname
+  - ProfilePicture
+- Response:
+  - Updated UserProfileResponseDto fields
+
+---
+
+## 5. Merchant API routes
+
+### 5.1 Merchant registration
+- POST /api/v1.0/Merchant/register
+- Requires multipart/form-data
+- Fields:
+  - Email
+  - Password
+  - ProfilePicture
+  - BusinessName
+  - ShopLocation
+  - SchoolCode
+  - Pin
+  - BankCode
+  - AccountNumber
+- Response:
+  - Merchant registration details and wallet number
+  - Fields include MerchantId, WalletNumber, account details, bank name, profile picture, message
+
+### 5.2 Get merchant profile
+- GET /api/v1.0/Merchant/merchant/profile
+- Requires authorization, merchant role
+- Response:
+  - MerchantId
+  - ProfilePicture
+  - Firstname
+  - Lastname
+  - SchoolCode
+  - SchoolName
+  - Email
+  - WalletNumber
+  - BusinessName
+  - ShopLocation
+  - IsApproved
+  - AccountNumber
+  - AccountName
+  - BankName
+- Use this for merchant dashboard display
+
+### 5.3 Update merchant profile
+- PUT /api/v1.0/Merchant/update_merchant_profile
+- Requires authorization, merchant role
+- Requires multipart/form-data for optional picture
+- Fields:
+  - Firstname
+  - Lastname
+  - ProfilePicture
+  - ShopLocation
+  - BankCode
+  - AccountNumber
+- Response:
+  - Updated MerchantProfileResponseDto
+
+### 5.4 QR code routes
+- GET /api/v1.0/Merchant/View/qrcode
+  - Returns raw QR code bytes
+- GET /api/v1.0/Merchant/qrcode
+  - Downloads PNG file named CampusPay-QRCode.png
+- Merchant UI should support viewing and downloading QR codes
+
+---
+
+## 6. Transaction API routes
+
+### 6.1 Transaction history
+- GET /api/v1.0/Transaction/history
+- Requires authorization
+- Returns AppResponse with transaction list
+
+### 6.2 Deposit
+- POST /api/v1.0/Transaction/Deposit
+- Requires authorization, Student role
+- Request body:
+  - Amount
+- Response:
+  - AppResponse<DepositResponseDto>
+  - DepositResponseDto contains nested TransactionDto
+
+### 6.3 Withdrawal
+- POST /api/v1.0/Transaction/Withdrawal
+- Requires authorization, Merchant role
+- Request body:
+  - Amount
+  - Pin
+- Response:
+  - AppResponse<TransactionDto>
+
+### 6.4 Transfer
+- POST /api/v1.0/Transaction/Transfer
+- Requires authorization, Student role
+- Request body:
+  - ReceiverWalletNumber
+  - Amount
+  - Description
+  - Pin
+- Response:
+  - AppResponse<TransactionDto>
+
+### 6.5 Scan to charge
+- POST /api/v1.0/Transaction/scan_to_charge
+- Requires authorization, Merchant role
+- Request content type: multipart/form-data
+- Fields:
+  - BarcodeScanDto fields
+  - Amount
+  - Pin
+- Response:
+  - AppResponse<TransactionDto>
+- Use this for merchants charging customers via scanned wallet codes
+
+### 6.6 Verify deposit
+- GET /api/v1.0/Transaction/verify/Deposit/{reference}
+- Requires authorization
+- Verifies deposit transaction by reference
+
+### 6.7 Verify withdrawal
+- GET /api/v1.0/Transaction/verify/Withdrawal/{reference}
+- Requires authorization
+- Verifies withdrawal transaction by reference
+
+### 6.8 Webhooks
+- POST /api/v1.0/Transaction/webhook/Deposit
+- POST /api/v1.0/Transaction/webhook/Withdrawal
+- These are server-side endpoints to accept raw webhook payloads
+- Not typically used in frontend UI, but note for integration
+
+---
+
+## 7. Wallet API routes
+
+### 7.1 Get wallet summary
+- GET /api/v1.0/Wallet/Wallet
+- Requires authorization
+- Returns current wallet summary
+
+### 7.2 Wallet search
+- POST /api/v1.0/Wallet/Search/WalletNumber
+- Request body: raw wallet number string
+- Response:
+  - WalletSearchDto
+  - Fields:
+    - WalletNumber
+    - FirstName
+    - LastName
+    - SchoolCode
+- Use this for wallet lookup / search UI
+
+### 7.3 Get wallet transactions
+- GET /api/v1.0/Wallet/Transactions
+- Requires authorization
+- Response:
+  - WalletResponseDto
+  - Contains sent and received transaction lists
+
+### 7.4 Lock or unlock wallet
+- POST /api/v1.0/Wallet/lockOrUnlock
+- Request body:
+  - WalletNumber
+- Requires authorization
+- Toggles wallet locked state
+- Useful in admin or user wallet control flows
+
+---
+
+## 8. School management API routes
+
+### 8.1 Add a school
+- POST /api/v1.0/School/Add
+- Request body:
+  - Name
+  - Code
+- Creates a new school entity
+
+### 8.2 Remove a school
+- DELETE /api/v1.0/School/Delete/{schoolId}
+- Path parameter:
+  - schoolId
+- Removes a school from platform
+
+### 8.3 Update a school
+- PUT /api/v1.0/School/Update/{schoolId}
+- Path parameter:
+  - schoolId
+- Request body:
+  - Name
+  - Code
+
+### 8.4 Get schools
+- GET /api/v1.0/School
+- Returns all schools
+
+### 8.5 Get school by code
+- GET /api/v1.0/School/Code/{code}
+- Path parameter:
+  - code
+
+### 8.6 Get school by id
+- GET /api/v1.0/School/ID/{schoolId}
+- Path parameter:
+  - schoolId
+
+### 8.7 Get school users
+- GET /api/v1.0/School/Users
+- Returns users assigned to schools
+- Response objects include SchoolResponseDto with Users
+
+---
+
+## 9. Admin and SchoolAdmin routes
+
+### 9.1 Admin login
+- POST /api/v1.0/Admin/login
+- Request body:
+  - Email
+  - Password
+- Response:
+  - Admin login DTO with token
+
+### 9.2 Create school admin
+- POST /api/v1.0/Admin/Create-SchoolAdmin
+- Requires Admin role
+- Request body: CreateSchoolAdminDto
+- SchoolAdminController also exposes the same route under /SchoolAdmin/Create-SchoolAdmin
+
+### 9.3 Delete user
+- DELETE /api/v1.0/Admin/delete/{id}
+- Requires Admin role
+- Deletes user by id
+
+### 9.4 Get profile
+- GET /api/v1.0/Admin/profile
+- Returns user profile for admin
+
+### 9.5 Get banks
+- GET /api/v1.0/Admin/banks
+- Returns a bank list from payment provider
+- Useful for merchant bank dropdowns and admin bank management
+
+### 9.6 SchoolAdmin login
+- POST /api/v1.0/SchoolAdmin/login
+- Request body:
+  - Email
+  - Password
+- Response:
+  - Admin login DTO
+
+### 9.7 Approve merchant
+- GET /api/v1.0/SchoolAdmin/ApproveMerchant?merchantId={merchantId}
+- Requires SchoolAdmin role
+- Approves merchant accounts
+- Merchant approval state is used during login
+
+### 9.8 SchoolAdmin create school admin
+- POST /api/v1.0/SchoolAdmin/Create-SchoolAdmin
+- Similar to Admin create school admin route
+
+---
+
+## 10. DTO schema and request/response model definitions
+
+### 10.1 User DTOs
+
+#### LoginRequestDto
+- WalletNumber (required)
+- Password (required)
+
+#### LoginResponseDto
+- UserId
+- ProfilePicture
+- Firstname
+- Lastname
+- SchoolCode
+- Email
+- WalletNumber
+- Token
+
+#### RegisterRequestDto
+- Firstname (required)
+- Lastname (required)
+- ProfilePicture (IFormFile, file upload)
+- MatricNumber (required)
+- SchoolCode (required)
+- Email (required, email address)
+- Pin (required, 4 digits)
+- Password (required)
+
+#### RegisterResponseDto
+- UserId
+- ProfilePicture
+- Firstname
+- Lastname
+- MatricNumber
+- SchoolCode
+- Email
+- WalletNumber
+- Message
+
+#### UserProfileResponseDto
+- UserId
+- ProfilePicture
+- Firstname
+- Lastname
+- MatricNumber
+- SchoolCode
+- SchoolName
+- Email
+- WalletNumber
+
+#### UpdateProfileDto
+- Firstname (required)
+- Lastname (required)
+- ProfilePicture (IFormFile)
+
+#### ChangePasswordDto
+- CurrentPassword (required)
+- NewPassword (required)
+
+#### EmailDto
+- Email (required)
+
+#### PasswordDto
+- Password (required)
+
+#### AdminLoginRequestDto
+- Email (required)
+- Password (required)
+
+#### AdminLoginResponseDto
+- likely includes token and admin data
+
+#### CreateSchoolAdminDto
+- includes fields for creating school admin accounts
+- likely Email, Password, SchoolCode, Firstname, Lastname
+
+### 10.2 Merchant DTOs
+
+#### RegisterMerchantRequestDto
+- Email (required)
+- Password (required)
+- ProfilePicture file
+- BusinessName (required)
+- ShopLocation (required)
+- SchoolCode (required)
+- Pin (required, 4 digits)
+- BankCode (required)
+- AccountNumber (required)
+
+#### UpdateMerchantProfileDto
+- Firstname
+- Lastname
+- ProfilePicture file
+- ShopLocation
+- BankCode
+- AccountNumber
+
+#### MerchantProfileResponseDto
+- MerchantId
+- ProfilePicture
+- Firstname
+- Lastname
+- SchoolCode
+- SchoolName
+- Email
+- WalletNumber
+- BusinessName
+- ShopLocation
+- IsApproved
+- AccountNumber
+- AccountName
+- BankName
+
+#### BarcodeScanDto
+- contains merchant scan payload used in scan-to-charge
+- likely includes scanned wallet number or code
+
+### 10.3 Wallet DTOs
+
+#### WalletDto
+- Id
+- WalletNumber
+- Balance
+- IsLocked
+- UserId
+- CreatedAt
+- LastUpdatedAt
+
+#### WalletResponseDto
+- Id
+- WalletNumber
+- Balance
+- IsLocked
+- UserId
+- User (AppUserDto)
+- CreatedAt
+- LastUpdatedAt
+- SentTransactions (List<TransactionDto>)
+- ReceivedTransactions (List<TransactionDto>)
+
+#### WalletSearchDto
+- WalletNumber
+- FirstName
+- LastName
+- SchoolCode
+
+### 10.4 Transaction DTOs
+
+#### DepositDto
+- Amount
+
+#### WithdrawDto
+- Amount
+- Pin (required, 4 digits)
+
+#### TransferDto
+- ReceiverWalletNumber
+- Amount
+- Description
+- Pin (required, 4 digits)
+
+#### TransactionDto
+- Id
+- Reference
+- Amount
+- Description
+- Type (TransactionType)
+- Status (TransactionStatus)
+- SenderWalletNumber
+- SenderWalletName
+- ReceiverWalletName
+- ReceiverWalletNumber
+- CreatedAt
+
+#### DepositResponseDto
+- Transaction (TransactionDto)
+
+### 10.5 School DTOs
+
+#### SchoolRequestDto
+- Name
+- Code
+
+#### SchoolResponseDto
+- Id
+- Name
+- Code
+- IsActive
+- CreatedAt
+- Users (List<AppUserDto>)
+
+#### SchoolUserResponseDto
+- likely includes school users grouped by code or id
+
+### 10.6 App user DTOs
+
+#### AppUserDto
+- ProfilePicture
+- FirstName
+- LastName
+- MatricNumber
+- SchoolCode
+- School (SchoolDto)
+- Merchant (MerchantDto?)
+- Wallet (WalletDto)
+- CreatedAt
+
+#### MerchantDto
+- merchant details embedded in user profile
+- likely includes business name, account number, bank code, transfer recipient code, approval state
+
+#### SchoolDto
+- Name
+- Code
+- Users
+- likely Id and metadata
+
+---
+
+## 11. Data model and entity relationships
+
+### 11.1 User and wallet relationship
+- AppUser contains:
+  - School
+  - Merchant (optional)
+  - Wallet
+- Wallet is linked to a user
+- WalletNumber is the unique identifier for login and transfers
+
+### 11.2 Merchant and approval
+- Merchant registration creates an AppUser with Merchant
+- New merchants are not approved by default
+- Approval is required before merchant login passes
+- Merchant entity includes:
+  - AccountName
+  - AccountNumber
+  - BankCode
+  - BankName
+  - BusinessName
+  - ShopLocation
+  - TransferRecipientCode
+  - QRCodeString
+  - IsApproved
+
+### 11.3 School and user mapping
+- School code links users to schools
+- SchoolResponseDto has Users
+- School creation and retrieval are used in registration flows
+
+### 11.4 Transactions
+- Transaction types:
+  - Deposit
+  - Withdrawal
+  - Transfer
+  - ScanToCharge
+- Transaction status is tracked in TransactionStatus
+- Transactions include sender and receiver wallet metadata
+- WalletResponseDto includes transaction history grouped as sent and received
+
+---
+
+## 12. UI pages and layout
+
+### 12.1 Public pages
+- Welcome / landing page
+- Login page
+- Forgot password page
+- Reset password page
+- Student registration page
+- Merchant registration page
+
+### 12.2 Authenticated pages
+- Dashboard selection screen after login
+- Student dashboard
+- Merchant dashboard
+- Admin dashboard
+- SchoolAdmin dashboard
+
+### 12.3 Student pages
+- Student profile page
+- Student wallet summary page
+- Deposit page
+- Transfer page
+- Transaction history page
+- Wallet search page
+- School data page (optional)
+
+### 12.4 Merchant pages
+- Merchant profile page
+- Merchant wallet summary
+- Withdrawal page
+- Scan-to-charge page
+- QR code display/download page
+- Transaction history page
+- Approval status page
+
+### 12.5 Admin pages
+- Admin login page
+- Admin profile page
+- Create school admin page
+- School management page
+- School list page
+- Delete user action
+- Bank list page
+- Merchant approval list page if accessible
+
+### 12.6 SchoolAdmin pages
+- SchoolAdmin login page
+- Merchant approval page
+- School admin profile page
+- School user list page
+
+---
+
+## 13. Frontend architecture and behavior
+
+### 13.1 Authentication
+- After login, save auth state in frontend store:
+  - user
+  - role
+  - walletNumber
+  - token
+- Keep cookie-based auth for requests
+- Use Authorization header only if backend expects token
+- Prefer sending cookies automatically with fetch or Axios:
+  - credentials: "include"
+  - withCredentials: true
+
+### 13.2 Routing
+- Use route guards for authenticated sections
+- Use role guards:
+  - /student/*
+  - /merchant/*
+  - /admin/*
+  - /schooladmin/*
+- Redirect unauthorized users to login or error page
+- Protect sensitive pages for the correct role
+
+### 13.3 Forms and validation
+- Student registration
+- Merchant registration
+- Login
+- Password change
+- Forgot/reset password
+- Transfer form
+- Withdrawal form
+- Deposit form
+- Wallet search form
+- School create/edit form
+- Merchant profile update form
+- Student profile update form
+
+### 13.4 File upload
+- Handle ProfilePicture uploads in register and update forms
+- Use FormData for:
+  - Student/register
+  - Merchant/register
+  - Student/update_profile
+  - Merchant/update_merchant_profile
+- Example:
+  - formData.append("ProfilePicture", file)
+  - formData.append("Firstname", firstname)
+
+### 13.5 Transaction pages
+- Deposit page:
+  - amount input
+  - submit to /Transaction/Deposit
+- Transfer page:
+  - receiver wallet number
+  - amount
+  - description
+  - pin
+  - submit to /Transaction/Transfer
+- Withdrawal page:
+  - amount
+  - pin
+  - submit to /Transaction/Withdrawal
+- Scan-to-charge page:
+  - barcode scan input or manual field
+  - amount
+  - pin
+  - submit as multipart if needed
+- Transaction history page:
+  - list with type, amount, reference, status, date, counterpart details
+- Verification pages:
+  - allow verification by reference if desired
+  - call /Transaction/verify/Deposit/{reference}
+  - call /Transaction/verify/Withdrawal/{reference}
+
+### 13.6 Wallet experience
+- Wallet summary displays balance, wallet number, locked state
+- Wallet transactions show sent and received
+- Wallet search page allows input of wallet number string
+- Use WalletSearchDto result to show user name and school
+- Lock/unlock wallet action UI if supported
+
+### 13.7 School management
+- Create new school form
+- School list table
+- Edit school modal/page
+- Delete school action
+- View school users
+- Use GetSchoolByCode, GetSchoolById, and GetSchoolUsers
+
+### 13.8 Merchant approval and admin workflows
+- Display merchant approval status on merchant dashboard
+- School admin page to approve merchants by merchantId
+- Admin page to create school admins
+- Admin page to delete users
+- Admin bank page to load bank list from /Admin/banks
+- Ensure approval flows are visible and actionable
+
+---
+
+## 14. UI data mapping
+
+### 14.1 Map response to UI state
+- Map LoginResponseDto to current user and token
+- Map UserProfileResponseDto to profile UI
+- Map MerchantProfileResponseDto to merchant dashboard
+- Map WalletDto and WalletResponseDto to wallet components
+- Map TransactionDto to transaction list rows
+- Map WalletSearchDto to search result card
+- Map SchoolResponseDto to school management lists
+
+### 14.2 Display fields
+- Login page: wallet number, password
+- Student register page: name, matric number, school code, pin, password, profile picture
+- Merchant register page: business name, location, bank code, account number, school code, pin, password, profile picture
+- Merchant dashboard: business name, approval status, wallet number, current balance, QR code
+- Student dashboard: name, wallet number, balance, school name
+- Admin dashboard: actions for school creation, user deletion, bank list
+- SchoolAdmin dashboard: merchant approval list, school user list
+
+---
+
+## 15. Error handling and responses
+
+### 15.1 Validation errors
+- Backend uses [Required], [EmailAddress], [MinLength], [MaxLength]
+- Extract validation error messages and show near fields
+- For form submission errors, display server message or field-level error list
+
+### 15.2 Authorization errors
+- Possible 401 Unauthorized
+- If unauthorized, redirect to login
+- If role mismatch, show an "Access denied" page
+
+### 15.3 Generic errors
+- Display friendly error notification for:
+  - network failures
+  - server 500 errors
+  - missing required fields
+  - bank account validation failures
+  - merchant not approved
+
+### 15.4 Success messages
+- Show confirmation on successful:
+  - login
+  - registration
+  - profile update
+  - deposit
+  - withdrawal
+  - transfer
+  - wallet search
+  - school creation
+  - merchant approval
+
+---
+
+## 16. Frontend technical stack guidance
+
+### 16.1 Suggested frameworks
+- React with React Router
+- Next.js with server/client pages
+- Vue 3 with Vue Router
+- Angular if preferred
+- Plain HTML/CSS/JS is also acceptable if needed
+
+### 16.2 Recommended libraries
+- fetch or Axios for HTTP requests
+- react-hook-form / formik for forms
+- yup or zod for client-side validation
+- Tailwind CSS / Bootstrap / Material UI for styling
+- Redux / Zustand / Vuex / Pinia for global state if needed
+- date-fns or dayjs for date formatting
+
+### 16.3 API integration
+- Use a single API service helper
+- Use credentials: "include" or axios.defaults.withCredentials = true
+- Add request/response interceptors for auth state
+- Handle refresh tokens if backend uses them
+
+### 16.4 Component structure
+- Layout components for authenticated vs public routes
+- Reusable form field components
+- Reusable table/list view components
+- Modal and confirmation dialog components
+- Notification/toast components
+- Loading spinners for async requests
+
+### 16.5 Mobile-first UX
+- Use responsive grid layout
+- Make forms easy to use on phones
+- Use larger tap targets for buttons
+- Show clear navigation and breadcrumbs
+
+---
+
+## 17. Security and token handling
+
+### 17.1 Cookie-based auth
+- Send cookies on every request
+- Use HttpOnly cookie mode for security
+- Do not store token in local storage if cookies are used
+- If token is returned in the response, store minimal auth state and rely on cookie
+
+### 17.2 Protected routes
+- Protect UI routes on the frontend
+- Verify user role after login
+- Fetch profile to confirm identity and role
+
+### 17.3 Sensitive forms
+- Pin fields should be masked or secure input
+- Password fields should be type password
+- Use HTTPS in production
+
+### 17.4 Logout flow
+- Call /Account/logout
+- Clear frontend auth session
+- Redirect to login
+
+---
+
+## 18. Integration details and assumptions
+
+### 18.1 Multipart endpoints
+- Student/register, Student/update_profile, Merchant/register, Merchant/update_merchant_profile, Transaction/scan_to_charge use multipart/form-data
+- Use FormData and include files in the request
+
+### 18.2 Role authorization
+- Some endpoints have [Authorize(Roles = "Student")]
+- Some endpoints have [Authorize(Roles = "Merchant")]
+- Some endpoints have [Authorize(Roles = "Admin")]
+- Some endpoints have [Authorize(Roles = "SchoolAdmin")]
+- Most wallet and transaction endpoints are just [Authorize]
+
+### 18.3 Payment provider integration
+- Merchant registration resolves bank account details via IPaymentService
+- Admin can request bank list from /Admin/banks
+- Use bank list to populate merchant bank dropdowns
+
+### 18.4 QR code generation
+- Merchant controller stores QRCodeString as base64
+- /Merchant/View/qrcode returns bytes
+- /Merchant/qrcode downloads PNG
+- Frontend should optionally render base64 image or offer a download from the endpoint
+
+---
+
+## 19. UI flow details
+
+### 19.1 Student onboarding
+- Landing page → student registration
+- Registration submits form data and profile picture
+- User receives email verification
+- After verification, user logs in with wallet number and password
+- Student dashboard shows wallet balance and transaction list
+- Student can deposit, transfer funds, and update profile
+
+### 19.2 Merchant onboarding
+- Merchant registration includes profile picture, business name, bank details, and school code
+- Merchant gets email verification
+- Merchant cannot log in until approved
+- After approval, merchant logs in with wallet number
+- Merchant dashboard shows business name, approval status, QR code, wallet balance
+- Merchant can withdraw funds, scan to charge, update profile, download QR code
+
+### 19.3 Admin / school admin workflow
+- Admin logs in via /Admin/login
+- Admin can create school admins
+- Admin can delete users
+- Admin can view bank list and approve or manage data
+- SchoolAdmin logs in via /SchoolAdmin/login
+- SchoolAdmin approves merchant accounts
+- SchoolAdmin can manage school user lists
+
+### 19.4 Transaction path
+- Deposit page for students only
+- Transfer page for students only
+- Withdrawal page for merchants only
+- Scan-to-charge page for merchants only
+- Transaction history page for all authorized users
+
+---
+
+## 20. Testing and QA
+
+### 20.1 Functional tests
+- Test login and logout flows
+- Test student registration and profile update
+- Test merchant registration and profile update
+- Test deposit, transfer, withdrawal, scan-to-charge
+- Test wallet search and wallet transaction list
+- Test school creation, update, delete, and list
+- Test admin and schooladmin approval flows
+
+### 20.2 Validation tests
+- Confirm required fields block submission
+- Confirm pin field requires exactly 4 digits
+- Confirm bank code and account number validation
+- Confirm email validation on registration
+
+### 20.3 Error handling tests
+- Simulate unauthorized responses
+- Simulate invalid credentials
+- Simulate server 500 errors
+- Verify error messages display correctly
+
+### 20.4 UX tests
+- Ensure mobile layout works
+- Ensure file uploads are accepted
+- Ensure proper navigation and route protection
+- Ensure QR code pages render and download correctly
+
+---
+
+## 21. Deployment and build considerations
+
+### 21.1 Build process
+- Use standard build command:
+  - React: npm run build
+  - Next.js: npm run build
+  - Vue: npm run build
+- Deploy static build to hosting service
+- Ensure API base URL is configurable via env variables
+
+### 21.2 Runtime configuration
+- Set API base URL to backend host
+- Use CORS and cookie support
+- Ensure credentials: include is enabled
+
+### 21.3 Security in production
+- Use HTTPS
+- Secure cookies
+- Use strong password fields and PIN masking
+- Avoid exposing tokens in local storage
+
+---
+
+## 22. Final instructions for the AI or developer
+
+Build a complete frontend that matches the backend contract exactly:
+
+- Use /api/v1.0 base URL
+- Support login, logout, and role-based pages
+- Use FormData for file upload and multipart endpoints
+- Handle cookies and authorization properly
+- Show user profile, wallet, and transaction history
+- Provide separate student and merchant registration flows
+- Provide admin and schooladmin interfaces
+- Include error handling, validation, and confirmation messages
+- Use responsive, mobile-friendly UI
+- Map DTO fields directly to UI forms and tables
+
+Focus on the routes, request fields, response fields, and role restrictions described above. Keep the frontend behavior aligned with the backend structure, controller routes, and DTO contracts.
