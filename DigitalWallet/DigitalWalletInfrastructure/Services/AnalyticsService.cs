@@ -28,9 +28,9 @@ public class AnalyticsService : IAnalyticsService
         if (wallet is null) return new AppResponse<StudentDashboardDto>("Wallet not found.");
 
         var now = DateTime.UtcNow;
-        var today = now.Date;
+        var today = DateTime.SpecifyKind(now.Date, DateTimeKind.Utc);
         var weekStart = today.AddDays(-((7 + (int)today.DayOfWeek - (int)DayOfWeek.Monday) % 7));
-        var monthStart = new DateTime(today.Year, today.Month, 1);
+        var monthStart = new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var successful = _context.Transaction.AsNoTracking().Where(t => t.Status == TransactionStatus.Successful);
         var sent = successful.Where(t => t.SenderWalletId == wallet.Id);
         var received = successful.Where(t => t.ReceiverWalletId == wallet.Id);
@@ -70,9 +70,10 @@ public class AnalyticsService : IAnalyticsService
     {
         var wallet = await _context.Wallet.AsNoTracking().Where(w => w.UserId == userId).Select(w => new { w.Id }).SingleOrDefaultAsync(cancellationToken);
         if (wallet is null) return new AppResponse<MerchantDashboardDto>("Wallet not found.");
-        var now = DateTime.UtcNow; var today = now.Date;
+        var now = DateTime.UtcNow;
+        var today = DateTime.SpecifyKind(now.Date, DateTimeKind.Utc);
         var weekStart = today.AddDays(-((7 + (int)today.DayOfWeek - (int)DayOfWeek.Monday) % 7));
-        var monthStart = new DateTime(today.Year, today.Month, 1);
+        var monthStart = new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var monthlyChartStart = monthStart.AddMonths(-5);
         var successful = _context.Transaction.AsNoTracking().Where(t => t.Status == TransactionStatus.Successful);
         var revenue = successful.Where(t => t.ReceiverWalletId == wallet.Id && t.Type != TransactionType.Deposit);
@@ -112,10 +113,12 @@ public class AnalyticsService : IAnalyticsService
     {
         var schoolCode = await _context.Users.AsNoTracking().Where(u => u.Id == userId).Select(u => u.SchoolCode).SingleOrDefaultAsync(cancellationToken);
         if (string.IsNullOrWhiteSpace(schoolCode)) return new AppResponse<SchoolDashboardDto>("School assignment not found.");
-        var today = DateTime.UtcNow.Date;
-        var monthStart = new DateTime(today.Year, today.Month, 1);
+        var now = DateTime.UtcNow;
+        var today = DateTime.SpecifyKind(now.Date, DateTimeKind.Utc);
+        var monthStart = new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var schoolWallets = _context.Wallet.AsNoTracking().Where(w => w.User.SchoolCode == schoolCode);
         var transactions = _context.Transaction.AsNoTracking().Where(t => t.Status == TransactionStatus.Successful && t.ReceiverWallet!.User.SchoolCode == schoolCode);
+        
         var dto = new SchoolDashboardDto
         {
             StudentCount = await (

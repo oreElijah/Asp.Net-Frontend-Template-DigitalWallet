@@ -264,11 +264,15 @@ namespace DigitalWalletApi.Controllers
                }
 
                _logger.LogInformation("Generating access and refresh tokens for user with wallet number: {WalletNumber}", loginDto.WalletNumber);
-               var token = await _authService.CreateToken(user);
-               var refreshToken = await _authService.CreateRefreshToken(user);
+                _logger.LogInformation("Generating access and refresh tokens for user with email: {Email}", loginDto.WalletNumber);
+                var token = await _authService.CreateToken(user);
+                var refreshToken = await _authService.CreateRefreshToken(user);
+
+                _logger.LogInformation("Writing access and refresh tokens to cookies for user with email: {Email}", loginDto.WalletNumber);
+                WriteAuthTokenCookie("ACCESS_TOKEN", token, TimeSpan.FromHours(1));
+                WriteAuthTokenCookie("REFRESH_TOKEN", refreshToken, TimeSpan.FromDays(7));
 
                 var responsedto = loginDto.ToLoginResponseDto(user, token);
-                responsedto.RefreshToken = refreshToken;
                 
                _logger.LogInformation("Login process completed successfully for user with wallet number: {WalletNumber}", loginDto.WalletNumber);
                return Ok(responsedto);
