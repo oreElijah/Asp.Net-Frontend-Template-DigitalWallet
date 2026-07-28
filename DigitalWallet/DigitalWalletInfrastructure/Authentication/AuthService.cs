@@ -212,7 +212,9 @@ namespace DigitalWalletInfrastructure.Authentication
 
         public async Task<AppUser> FindUserByWalletNumberAsync(string walletNumber)
         {
-            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.Wallet.WalletNumber == walletNumber);
+            var user = await _userManager.Users
+            .Include(u => u.Merchant)
+            .FirstOrDefaultAsync(u => u.Wallet.WalletNumber == walletNumber);
             if (user == null)
             {
                 _logger.LogWarning("No user found with wallet number {WalletNumber}", walletNumber);
