@@ -57,7 +57,7 @@ namespace DigitalWalletApi.Controllers
             [ServiceFilter(typeof(LogActionFilter))]
             [HttpPost("register")]
             [AllowAnonymous]
-            public async Task<IActionResult> Register([FromBody] RegisterRequestDto registerDto)
+            public async Task<IActionResult> Register([FromForm] RegisterRequestDto registerDto)
             {
                 _logger.LogInformation("Received registration request for email: {Email}", registerDto.Email);
                 if (string.IsNullOrWhiteSpace(registerDto.Email) || string.IsNullOrWhiteSpace(registerDto.Password) || string.IsNullOrWhiteSpace(registerDto.Pin))
