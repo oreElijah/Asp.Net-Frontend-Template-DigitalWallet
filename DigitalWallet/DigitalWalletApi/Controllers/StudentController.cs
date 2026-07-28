@@ -97,6 +97,17 @@ namespace DigitalWalletApi.Controllers
                 };
 
                 var newUser = await _userManager.CreateAsync(user, registerDto.Password);
+                var tracked = _context.ChangeTracker.Entries()
+    .Select(e => new
+    {
+        Type = e.Entity.GetType().Name,
+        e.State
+    });
+
+                foreach (var item in tracked)
+                {
+                    _logger.LogInformation("{Type} - {State}", item.Type, item.State);
+                }
                 if (!newUser.Succeeded)
                 {
                     _logger.LogWarning("Failed to create user for email {Email}. Errors: {Errors}", registerDto.Email, string.Join(", ", newUser.Errors.Select(e => e.Description)));
