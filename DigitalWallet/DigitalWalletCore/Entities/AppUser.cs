@@ -19,11 +19,11 @@ namespace DigitalWalletCore.Entities
 
         public string SchoolCode { get; set; } = string.Empty;
 
-        public School School { get; set; } = new School();
+        public School School { get; set; }
 
         public Merchant? Merchant { get; set; }
 
-        public Wallet? Wallet { get; set; } = new Wallet();
+        public Wallet? Wallet { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
