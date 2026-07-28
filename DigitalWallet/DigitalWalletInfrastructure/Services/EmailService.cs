@@ -118,7 +118,15 @@ namespace DigitalWalletInfrastructure.Services
                 return;
             }
 
-            var templatePath = Path.Combine(_environment.ContentRootPath, "Templates", "VerifyEmail.html");
+            // var templatePath = Path.Combine(_environment.ContentRootPath, "Templates", "VerifyEmail.html");
+            var templatePath = Path.Combine(
+    _environment.ContentRootPath,
+    "Templates",
+    "VerifyEmail.html");
+
+            _logger.LogInformation("Content Root: {Root}", _environment.ContentRootPath);
+            _logger.LogInformation("Template Path: {Path}", templatePath);
+            _logger.LogInformation("Template Exists: {Exists}", File.Exists(templatePath));
             var html = await File.ReadAllTextAsync(templatePath);
             html = html.Replace("{{name}}", firstName);
 

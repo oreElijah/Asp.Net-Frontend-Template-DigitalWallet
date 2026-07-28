@@ -46,4 +46,11 @@
     <ProjectReference Include="..\DigitalWalletInfrastructure\DigitalWalletInfrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+  <Content Include="Templates\**\*">
+    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+  </Content>
+</ItemGroup>
+
 </Project>
