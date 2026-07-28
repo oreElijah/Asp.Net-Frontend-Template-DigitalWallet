@@ -299,6 +299,7 @@ namespace DigitalWalletInfrastructure.Authentication
         public async Task<CreateSchoolAdminResponseDto> CreateSchoolAdminAsync(CreateSchoolAdminDto createSchoolAdminDto)
         {
             var school = await GetSchoolByCodeAsync(createSchoolAdminDto.SchoolCode);
+            var schoolAdmins = await GetSchoolAdminByCodeAsync(createSchoolAdminDto.SchoolCode);
 
             var user = new AppUser
             {
@@ -307,10 +308,11 @@ namespace DigitalWalletInfrastructure.Authentication
                 Email = createSchoolAdminDto.Email,
                 UserName = createSchoolAdminDto.Email,
                 EmailConfirmed = true,
+                SchoolCode = createSchoolAdminDto.SchoolCode,
                 Wallet = new Wallet
                 {
                     Balance = 0,
-                    WalletNumber = "SchAdmin001"
+                    WalletNumber = $"SchAdmin00{schoolAdmins.Count + 1}"
                 },
                 School = school
             };
@@ -350,10 +352,16 @@ namespace DigitalWalletInfrastructure.Authentication
                     select user
                 ).ToListAsync();
 
-            if (schoolAdmins == null || !schoolAdmins.Any())
+            if (schoolAdmins == null )
             {
                 _logger.LogWarning("No school admin found for school code {SchoolCode}", schoolCode);
                 throw new NotFoundException($"No school admin found for school code {schoolCode}");
+            }
+
+            if(schoolAdmins.Count == 0)
+            {
+                _logger.LogWarning("No school admins found for school code {SchoolCode}", schoolCode);
+                return new List<string>();
             }
 
             _logger.LogInformation("School admins found for school code {SchoolCode}", schoolCode);
