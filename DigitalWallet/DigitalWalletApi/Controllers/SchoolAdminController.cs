@@ -204,6 +204,61 @@ namespace DigitalWalletApi.Controllers
             }
 
             [ServiceFilter(typeof(LogActionFilter))]
+            [HttpGet("merchants")]
+            [Authorize(Roles = "SchoolAdmin")]
+            public async Task<IActionResult> GetMerchantsBySchoolCode()
+            {
+                _logger.LogInformation("Received request to get merchants for school admin with user ID: {UserId}", User.GetUserId());
+                var schoolCode = await _context.Users.Where(u => u.Id == User.GetUserId()).Select(u => u.SchoolCode).SingleOrDefaultAsync();
+                var merchants = await _context.Users
+                    .Include(u => u.Merchant)
+                    .Where(u => u.SchoolCode == schoolCode && u.Merchant != null)
+                    .Select(u => new MerchantProfileResponseDto
+                    {
+                        MerchantId = u.Merchant.Id,
+                        Firstname = u.FirstName,
+                        Lastname = u.LastName,
+                        SchoolCode = u.SchoolCode,
+                        Email = u.Email,
+                        WalletNumber = u.Wallet.WalletNumber,
+                        BusinessName = u.Merchant.BusinessName,
+                        ShopLocation = u.Merchant.ShopLocation,
+                        IsApproved = u.Merchant.IsApproved,
+                        AccountName = u.Merchant.AccountName,
+                        AccountNumber = u.Merchant.AccountNumber,
+                        BankName = u.Merchant.BankName
+                    })
+                    .ToListAsync();
+                _logger.LogInformation("Successfully retrieved merchants for school admin with user ID: {UserId}", User.GetUserId());
+                return Ok(merchants);
+            }
+
+            [ServiceFilter(typeof(LogActionFilter))]
+            [HttpGet("students")]
+            [Authorize(Roles = "SchoolAdmin")]
+            public async Task<IActionResult> GetStudents()
+            {
+                _logger.LogInformation("Received request to get students for school admin with user ID: {UserId}", User.GetUserId());
+                var schoolCode = await _context.Users.Where(u => u.Id == User.GetUserId()).Select(u => u.SchoolCode).SingleOrDefaultAsync();
+                var students = await _context.Users
+                    .Include(u => u.Wallet)
+                    .Where(u => u.SchoolCode == schoolCode && u.MatricNumber != null)
+                    .Select(u => new UserProfileResponseDto
+                    {
+                        UserId = u.Id,
+                        Firstname = u.FirstName,
+                        Lastname = u.LastName,
+                        SchoolCode = u.SchoolCode,
+                        Email = u.Email,
+                        WalletNumber = u.Wallet.WalletNumber,
+                        MatricNumber = u.MatricNumber
+                    })
+                    .ToListAsync();
+                _logger.LogInformation("Successfully retrieved students for school admin with user ID: {UserId}", User.GetUserId());
+                return Ok(students);
+            }
+            
+            [ServiceFilter(typeof(LogActionFilter))]
             [HttpGet("banks")]
             [AllowAnonymous]
             public async Task<IActionResult> GetBanks()

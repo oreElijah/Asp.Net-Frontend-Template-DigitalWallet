@@ -214,6 +214,7 @@ namespace DigitalWalletInfrastructure.Authentication
         {
             var user = await _userManager.Users
             .Include(u => u.Merchant)
+            .Include(u => u.School)
             .FirstOrDefaultAsync(u => u.Wallet.WalletNumber == walletNumber);
             if (user == null)
             {
