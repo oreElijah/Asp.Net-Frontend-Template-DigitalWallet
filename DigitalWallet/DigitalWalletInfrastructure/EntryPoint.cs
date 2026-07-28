@@ -121,39 +121,39 @@ namespace DigitalWalletInfrastructure
                             return;
                         }
 
-                        // var cache = context.HttpContext.RequestServices.GetService<IDistributedCache>();
+                        var cache = context.HttpContext.RequestServices.GetService<IDistributedCache>();
 
-                        // if (cache is null)
-                        // {
-                        //     // Redis isn't configured. Skip token blacklist validation.
-                        //     return;
-                        // }
+                        if (cache is null)
+                        {
+                            // Redis isn't configured. Skip token blacklist validation.
+                            return;
+                        }
 
-                        // var revoked = await cache.GetStringAsync(jti);
+                        var revoked = await cache.GetStringAsync(jti);
 
-                        // if (!string.IsNullOrWhiteSpace(revoked))
-                        // {
-                        //     context.Fail("Token has been revoked.");
-                        // }
+                        if (!string.IsNullOrWhiteSpace(revoked))
+                        {
+                            context.Fail("Token has been revoked.");
+                        }
                         
-                        // if (!string.IsNullOrWhiteSpace(revoked))
-                        // {
-                        //     context.Fail("Token has been revoked.");
-                        // }
+                        if (!string.IsNullOrWhiteSpace(revoked))
+                        {
+                            context.Fail("Token has been revoked.");
+                        }
                     }
                 };
             });
 
-            // var redisConnection = configuration["Redis:Configuration"];
+            var redisConnection = configuration["Redis:Configuration"];
 
-            // if (!string.IsNullOrWhiteSpace(redisConnection))
-            // {
-            //     services.AddStackExchangeRedisCache(options =>
-            //     {
-            //         options.Configuration = redisConnection;
-            //         options.InstanceName = configuration["Redis:InstanceName"];
-            //     });
-            // }
+            if (!string.IsNullOrWhiteSpace(redisConnection))
+            {
+                services.AddStackExchangeRedisCache(options =>
+                {
+                    options.Configuration = redisConnection;
+                    options.InstanceName = configuration["Redis:InstanceName"];
+                });
+            }
 
             services.AddHangfire(config =>
             {
