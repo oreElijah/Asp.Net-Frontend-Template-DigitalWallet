@@ -14,8 +14,7 @@ namespace DigitalWalletCore.Dtos.User
         [Required]
         public string Lastname { get; set; }
 
-        public IFormFile ProfilePicture { get; set; }
-
+        // public IFormFile ProfilePicture { get; set; }
 
         [Required]
         public string MatricNumber { get; set; }

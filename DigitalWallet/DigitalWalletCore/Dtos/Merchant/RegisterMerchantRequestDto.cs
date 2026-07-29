@@ -15,7 +15,7 @@ namespace DigitalWalletCore.Dtos.Merchant
         [Required]
         public string Password { get; set; }
 
-        public IFormFile ProfilePicture { get; set; }
+        // public IFormFile ProfilePicture { get; set; }
 
         [Required]
         public string BusinessName { get; set; }

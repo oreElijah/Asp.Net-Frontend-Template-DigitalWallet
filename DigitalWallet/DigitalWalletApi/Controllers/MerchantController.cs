@@ -55,7 +55,7 @@ namespace DigitalWalletApi.Controllers
         [ServiceFilter(typeof(LogActionFilter))]
         [HttpPost("register")]
         [AllowAnonymous]
-        public async Task<IActionResult> RegisterMerchant([FromForm] RegisterMerchantRequestDto registerRequestDto)
+        public async Task<IActionResult> RegisterMerchant([FromBody] RegisterMerchantRequestDto registerRequestDto)
         {
             _logger.LogInformation("Received merchant registration request for email: {Email}", registerRequestDto.Email);
             if (string.IsNullOrWhiteSpace(registerRequestDto.Email) || string.IsNullOrWhiteSpace(registerRequestDto.Password) || string.IsNullOrWhiteSpace(registerRequestDto.Pin))
@@ -84,11 +84,11 @@ namespace DigitalWalletApi.Controllers
             }
 
             var profilePictureUrl = "";
-            if (registerRequestDto.ProfilePicture != null)
-            {
-                _logger.LogInformation("Uploading profile picture for merchant registration for email: {Email}", registerRequestDto.Email);
-                profilePictureUrl = await _fileStorageService.UploadFileAsync(registerRequestDto.ProfilePicture);
-            }
+            // if (registerRequestDto.ProfilePicture != null)
+            // {
+            //     _logger.LogInformation("Uploading profile picture for merchant registration for email: {Email}", registerRequestDto.Email);
+            //     profilePictureUrl = await _fileStorageService.UploadFileAsync(registerRequestDto.ProfilePicture);
+            // }
 
             _logger.LogInformation("Creating transfer recipient for account name: {AccountName}, account number: {AccountNumber}, and bank code: {BankCode} for merchant registration.", accountName, registerRequestDto.AccountNumber, registerRequestDto.BankCode);
             var recipientCode = await _paystackService.CreateTransferRecipientAsync(accountName, registerRequestDto.AccountNumber, registerRequestDto.BankCode);
@@ -206,7 +206,7 @@ namespace DigitalWalletApi.Controllers
         [ServiceFilter(typeof(LogActionFilter))]
         [HttpPut("update_merchant_profile")]
         [Authorize(Roles = "Merchant")]
-        public async Task<IActionResult> UpdateMerchantProfile([FromBody] UpdateMerchantProfileDto updateMerchantProfileDto)
+        public async Task<IActionResult> UpdateMerchantProfile([FromForm] UpdateMerchantProfileDto updateMerchantProfileDto)
         {
             var userId = User.GetUserId();
             _logger.LogInformation("Received request to update merchant profile for user with ID: {UserId}", userId);

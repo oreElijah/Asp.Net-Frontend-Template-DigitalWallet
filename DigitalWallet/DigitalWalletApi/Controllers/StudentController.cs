@@ -57,7 +57,7 @@ namespace DigitalWalletApi.Controllers
             [ServiceFilter(typeof(LogActionFilter))]
             [HttpPost("register")]
             [AllowAnonymous]
-            public async Task<IActionResult> Register([FromForm] RegisterRequestDto registerDto)
+            public async Task<IActionResult> Register([FromBody] RegisterRequestDto registerDto)
             {
                 _logger.LogInformation("Received registration request for email: {Email}", registerDto.Email);
                 if (string.IsNullOrWhiteSpace(registerDto.Email) || string.IsNullOrWhiteSpace(registerDto.Password) || string.IsNullOrWhiteSpace(registerDto.Pin))
@@ -74,11 +74,11 @@ namespace DigitalWalletApi.Controllers
                 }
 
                 var profilePictureUrl = "";
-                if (registerDto.ProfilePicture != null)
-                {
-                    _logger.LogInformation("Uploading profile picture for student registration for email: {Email}", registerDto.Email);
-                    profilePictureUrl = await _fileStorageService.UploadFileAsync(registerDto.ProfilePicture);
-                }
+                // if (registerDto.ProfilePicture != null)
+                // {
+                //     _logger.LogInformation("Uploading profile picture for student registration for email: {Email}", registerDto.Email);
+                //     profilePictureUrl = await _fileStorageService.UploadFileAsync(registerDto.ProfilePicture);
+                // }
 
                 _logger.LogInformation("Attempting to retrieve school with code: {SchoolCode} for registration.", registerDto.SchoolCode);
                 var school = await _authService.GetSchoolByCodeAsync(registerDto.SchoolCode);
@@ -120,7 +120,7 @@ namespace DigitalWalletApi.Controllers
 
                 user.Wallet = wallet.Data;
                 await _userManager.UpdateAsync(user);
-                
+
                 _logger.LogInformation("Enqueuing background job to send verification email to user with email: {Email}", registerDto.Email);
                 BackgroundJob.Enqueue<IEmailService>(x =>
                    x.SendVerifyUserEmail(
@@ -163,7 +163,7 @@ namespace DigitalWalletApi.Controllers
             [ServiceFilter(typeof(LogActionFilter))]
             [HttpPut("update_profile")]
             [Authorize(Roles = "Student")]
-            public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileDto updateProfileDto)
+            public async Task<IActionResult> UpdateProfile([FromForm] UpdateProfileDto updateProfileDto)
             {
                 var userId = User.GetUserId();
                 _logger.LogInformation("Received request to update profile for user with ID: {UserId}", userId);
