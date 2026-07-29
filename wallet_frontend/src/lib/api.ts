@@ -30,7 +30,7 @@ export async function api<T = unknown>(path: string, options: RequestInit = {}):
 
   const response = await fetch(`${BASE}${path.startsWith('/') ? path : `/${path}`}`, {
     ...options,
-    credentials: 'include',
+    credentials: 'omit',
     headers,
   })
 
