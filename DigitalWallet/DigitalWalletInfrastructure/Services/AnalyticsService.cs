@@ -34,7 +34,7 @@ public class AnalyticsService : IAnalyticsService
         var successful = _context.Transaction.AsNoTracking().Where(t => t.Status == TransactionStatus.Successful);
         var sent = successful.Where(t => t.SenderWalletId == wallet.Id);
         var received = successful.Where(t => t.ReceiverWalletId == wallet.Id);
-        var chartStart = new DateTime(today.Year, today.Month, 1).AddMonths(-5);
+        var chartStart = monthStart.AddMonths(-5);
         var dailyChartStart = today.AddDays(-29);
 
         var dto = new StudentDashboardDto
@@ -118,7 +118,7 @@ public class AnalyticsService : IAnalyticsService
         var monthStart = new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var schoolWallets = _context.Wallet.AsNoTracking().Where(w => w.User.SchoolCode == schoolCode);
         var transactions = _context.Transaction.AsNoTracking().Where(t => t.Status == TransactionStatus.Successful && t.ReceiverWallet!.User.SchoolCode == schoolCode);
-        
+
         var dto = new SchoolDashboardDto
         {
             StudentCount = await (
@@ -146,7 +146,8 @@ public class AnalyticsService : IAnalyticsService
     public async Task<AppResponse<SystemDashboardDto>> GetSystemDashboardAsync(CancellationToken cancellationToken = default)
     {
         var today = DateTime.UtcNow.Date;
-        var chartStart = new DateTime(today.Year, today.Month, 1).AddMonths(-5);
+        var monthStart = new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var chartStart = monthStart.AddMonths(-5);
         var allTransactions = _context.Transaction.AsNoTracking();
         var successfulTransactions = allTransactions.Where(t => t.Status == TransactionStatus.Successful);
         var totalTransactionCount = await allTransactions.CountAsync(cancellationToken);
@@ -165,7 +166,8 @@ public class AnalyticsService : IAnalyticsService
             TransactionSuccessRate = totalTransactionCount == 0 ? 0 : Math.Round((decimal)successfulTransactionCount / totalTransactionCount * 100, 2),
             MonthlyUserGrowth = await _context.Users.AsNoTracking().Where(u => u.CreatedAt >= chartStart).GroupBy(u => new { u.CreatedAt.Year, u.CreatedAt.Month })
                 .Select(g => new TimeSeriesPointDto { Period = new DateTime(g.Key.Year, g.Key.Month, 1), Count = g.Count() }).OrderBy(x => x.Period).ToListAsync(cancellationToken)
-            ,MonthlyTransactionVolume = await successfulTransactions.Where(t => t.CreatedAt >= chartStart).GroupBy(t => new { t.CreatedAt.Year, t.CreatedAt.Month })
+            ,
+            MonthlyTransactionVolume = await successfulTransactions.Where(t => t.CreatedAt >= chartStart).GroupBy(t => new { t.CreatedAt.Year, t.CreatedAt.Month })
                 .Select(g => new TimeSeriesPointDto { Period = new DateTime(g.Key.Year, g.Key.Month, 1), Amount = g.Sum(x => x.Amount), Count = g.Count() }).OrderBy(x => x.Period).ToListAsync(cancellationToken),
             DailyTransactionVolume = await successfulTransactions.Where(t => t.CreatedAt >= today.AddDays(-29)).GroupBy(t => t.CreatedAt.Date)
                 .Select(g => new TimeSeriesPointDto { Period = g.Key, Amount = g.Sum(x => x.Amount), Count = g.Count() }).OrderBy(x => x.Period).ToListAsync(cancellationToken),
