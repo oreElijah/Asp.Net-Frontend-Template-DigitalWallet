@@ -399,65 +399,71 @@ namespace DigitalWalletInfrastructure.Repositories
             if (!IsValidAmount(withdrawDto.Amount)) return InvalidAmountResponse<TransactionDto>();
             _logger.LogInformation("Starting withdrawal process for user {UserId} with amount {Amount}", userId, withdrawDto.Amount);
             await using var dbTransaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-            var wallet = await _context.Wallet.FirstOrDefaultAsync(w => w.UserId == userId);
+            try{
+                var wallet = await _context.Wallet.FirstOrDefaultAsync(w => w.UserId == userId);
 
-            if (wallet == null)
-            {
-                _logger.LogWarning("Wallet not found for user {UserId}", userId);
-                return new AppResponse<TransactionDto>
+                if (wallet == null)
                 {
-                    Succeeded = false,
-                    Message = "Wallet not found."
-                };
-            }
-            _logger.LogInformation("Wallet found for user {UserId}: {WalletNumber}", userId, wallet.WalletNumber);
-            if (wallet.IsLocked)
-            {
-                _logger.LogWarning("Wallet {WalletNumber} is locked for user {UserId}", wallet.WalletNumber, userId);
-                return new AppResponse<TransactionDto>
+                    _logger.LogWarning("Wallet not found for user {UserId}", userId);
+                    await dbTransaction.RollbackAsync();
+                    return new AppResponse<TransactionDto>
+                    {
+                        Succeeded = false,
+                        Message = "Wallet not found."
+                    };
+                }
+
+                _logger.LogInformation("Wallet found for user {UserId}: {WalletNumber}", userId, wallet.WalletNumber);
+                if (wallet.IsLocked)
                 {
-                    Succeeded = false,
-                    Message = "Wallet is locked."
-                };
-            }
+                    _logger.LogWarning("Wallet {WalletNumber} is locked for user {UserId}", wallet.WalletNumber, userId);
+                    await dbTransaction.RollbackAsync();
+                    return new AppResponse<TransactionDto>
+                    {
+                        Succeeded = false,
+                        Message = "Wallet is locked."
+                    };
+                }
 
-            _logger.LogInformation("Checking if wallet {WalletNumber} has sufficient balance for withdrawal. Available balance: {Balance}, requested amount: {Amount}", wallet.WalletNumber, wallet.Balance, withdrawDto.Amount);
-            if (wallet.Balance < withdrawDto.Amount)
-            {
-                _logger.LogWarning("Insufficient balance in wallet {WalletNumber} for user {UserId}. Available balance: {Balance}, requested amount: {Amount}", wallet.WalletNumber, userId, wallet.Balance, withdrawDto.Amount);
-                return new AppResponse<TransactionDto>
+                _logger.LogInformation("Checking if wallet {WalletNumber} has sufficient balance for withdrawal. Available balance: {Balance}, requested amount: {Amount}", wallet.WalletNumber, wallet.Balance, withdrawDto.Amount);
+                if (wallet.Balance < withdrawDto.Amount)
                 {
-                    Succeeded = false,
-                    Message = "Insufficient balance."
-                };
-            }
+                    _logger.LogWarning("Insufficient balance in wallet {WalletNumber} for user {UserId}. Available balance: {Balance}, requested amount: {Amount}", wallet.WalletNumber, userId, wallet.Balance, withdrawDto.Amount);
+                    await dbTransaction.RollbackAsync();
+                    return new AppResponse<TransactionDto>
+                    {
+                        Succeeded = false,
+                        Message = "Insufficient balance."
+                    };
+                }
 
-            _logger.LogInformation("The user has sufficient balance for withdrawal, Creating transaction for Withdrawal of amount {Amount} to wallet {WalletNumber} and adding it to the database", withdrawDto.Amount, wallet.WalletNumber);
-            var transaction = withdrawDto.ToTransactionFromWithdrawal(wallet.WalletNumber, TransactionStatus.Pending, "", wallet.Id);
-
-            _logger.LogInformation("Checkin Pin for user {UserId} and wallet {WalletNumber}", userId, wallet.WalletNumber);
-            if (PinHasher.VerifyHashedPassword(wallet, wallet.PinHash, withdrawDto.Pin) == PasswordVerificationResult.Failed)
-            {
-                _logger.LogWarning("Incorrect pin provided for withdrawal by user {UserId} and wallet {WalletNumber}", userId, wallet.WalletNumber);
-                return new AppResponse<TransactionDto>
+                _logger.LogInformation("Checkin Pin for user {UserId} and wallet {WalletNumber}", userId, wallet.WalletNumber);
+                if (PinHasher.VerifyHashedPassword(wallet, wallet.PinHash, withdrawDto.Pin) == PasswordVerificationResult.Failed)
                 {
-                    Succeeded = false,
-                    Message = "Incorrect pin."
-                };
-            }
+                    _logger.LogWarning("Incorrect pin provided for withdrawal by user {UserId} and wallet {WalletNumber}", userId, wallet.WalletNumber);
+                    await dbTransaction.RollbackAsync();
+                    return new AppResponse<TransactionDto>
+                    {
+                        Succeeded = false,
+                        Message = "Incorrect pin."
+                    };
+                }
 
-            await _context.AddAsync(transaction);
-            await _context.SaveChangesAsync();
+                _logger.LogInformation("The user has sufficient balance for withdrawal, Creating transaction for Withdrawal of amount {Amount} to wallet {WalletNumber} and adding it to the database", withdrawDto.Amount, wallet.WalletNumber);
+                var transaction = withdrawDto.ToTransactionFromWithdrawal(wallet.WalletNumber, TransactionStatus.Pending, string.Empty, wallet.Id);
 
-            _logger.LogInformation("Initializing Withdrawal for Transaction {TransactionId} and Wallet {WalletNumber}", transaction.Id, wallet.WalletNumber);
-            //Withdraw from wallet to payment gateway logic would be here
-            var paymentResponse = await _paymentService.InitializeWithdrawalAsync(transaction.Id, wallet.WalletNumber);
+                await _context.Transaction.AddAsync(transaction);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Initializing Withdrawal for Transaction {TransactionId} and Wallet {WalletNumber}", transaction.Id, wallet.WalletNumber);
+                //Withdraw from wallet to payment gateway logic would be here
+                var paymentResponse = await _paymentService.InitializeWithdrawalAsync(transaction.Id, wallet.WalletNumber);
 
             if (!paymentResponse.Succeeded)
             {
                 transaction.Status = TransactionStatus.Failed;
                 await _context.SaveChangesAsync();
-                
+                await dbTransaction.RollbackAsync();
                 return new AppResponse<TransactionDto>
                 {
                     Succeeded = false,
@@ -465,12 +471,27 @@ namespace DigitalWalletInfrastructure.Repositories
                 };
             }
 
+            await dbTransaction.CommitAsync();
+
+            _logger.LogInformation("Withdrawal initialized successfully for transaction {TransactionId}",transaction.Id);
             return new AppResponse<TransactionDto>
             {
                 Succeeded = true,
                 Message = "Withdrawal successful.",
                 Data = transaction.ToTransactionResponseDto()
             };
+            }catch (Exception ex)
+            {
+                _logger.LogError(ex, "Withdrawal failed unexpectedly for user {UserId}", userId);
+
+                await dbTransaction.RollbackAsync();
+
+                return new AppResponse<TransactionDto>
+                {
+                    Succeeded = false,
+                    Message = "An unexpected error occurred while processing the withdrawal."
+                };
+            }
         }
 
         private static bool IsValidAmount(decimal amount) => amount > 0 && amount <= 1_000_000m && decimal.Round(amount, 2) == amount;
