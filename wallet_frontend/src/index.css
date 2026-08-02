@@ -29,6 +29,11 @@
 /* Keep the Remember me control compact and correctly aligned */
 .form .meta{align-items:center;min-height:24px}.form .meta>label{display:flex;grid-template-columns:none;align-items:center;gap:8px;font-weight:500;cursor:pointer}.form .meta input[type="checkbox"]{appearance:none;width:17px;height:17px;min-width:17px;margin:0;padding:0;border:1.5px solid #9aaba6;border-radius:5px;background:white;display:grid;place-content:center}.form .meta input[type="checkbox"]:checked{background:#153b35;border-color:#153b35}.form .meta input[type="checkbox"]:checked:after{content:'✓';color:white;font-size:12px;font-weight:800;line-height:1}.form .meta>button{padding:4px 0}
 
+.password-toggle>div{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.password-toggle button{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 12px;font-size:0.95rem;min-width:auto}
+.password-toggle button svg{width:16px;height:16px}
+.password-toggle input{flex:1}
+
 /* Landing-page motion */
 @keyframes cp-rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
 @keyframes cp-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
@@ -153,4 +158,15 @@ html{scroll-behavior:smooth;background:var(--cp-bg)}body{background:var(--cp-bg)
 .form-flag{margin:14px 0 18px;padding:12px 14px;border-radius:10px;font-weight:700;display:flex;align-items:center;gap:10px}
 .form-flag.success{background:#e9f7f0;color:#143b35;border:1px solid #d3efe1}
 .form-flag.error{background:#fdecec;color:#7a2220;border:1px solid #f1c7c5}
+
+/* Sidebar collapse toggle (controlled via `cp-sidebar-collapsed` on <html>) */
+:root.cp-sidebar-collapsed .shell>aside{width:84px;padding:12px 10px;overflow:hidden}
+:root.cp-sidebar-collapsed .shell>aside .person span,
+:root.cp-sidebar-collapsed .shell>aside .grouped-nav button span,
+:root.cp-sidebar-collapsed .shell>aside footer button span{display:none!important;opacity:0}
+:root.cp-sidebar-collapsed .shell>aside .group-items{display:none!important}
+:root.cp-sidebar-collapsed .shell>aside .logo i{width:36px;height:36px}
+:root.cp-sidebar-collapsed .workspace{margin-left:116px}
+.shell>aside{transition:width .18s ease,padding .18s ease}
+
 
