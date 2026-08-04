@@ -3,4 +3,5 @@
   <Project Path="DigitalWalletApplication/DigitalWalletApplication.csproj" />
   <Project Path="DigitalWalletCore/DigitalWalletCore.csproj" />
   <Project Path="DigitalWalletInfrastructure/DigitalWalletInfrastructure.csproj" />
+  <Project Path="DigitalWalletTest/DigitalWalletTest.csproj" Id="dc0bd054-c60a-40d0-bf23-f76d8a4c2e26" />
 </Solution>

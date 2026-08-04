@@ -45,7 +45,7 @@ namespace DigitalWalletInfrastructure.Repositories
                 return new AppResponse<SchoolResponseDto>
                 {
                     Succeeded = false,
-                    Message = "Failed to add school."
+                    Message = "Failed to add school, school with the same name or code already exists."
                 };
             }
 
@@ -71,7 +71,7 @@ namespace DigitalWalletInfrastructure.Repositories
                 return new AppResponse<bool>
                 {
                     Succeeded = false,
-                    Message = "School could not be deleted"
+                    Message = "School could not be deleted, school does not exist."
                 };
             }
 
@@ -211,7 +211,11 @@ namespace DigitalWalletInfrastructure.Repositories
             if (school == null)
             {
                 _logger.LogWarning($"School with ID {schoolId} does not exist.");
-                throw new NotFoundException("School with ID {schoolId} not found.");
+                return new AppResponse<SchoolResponseDto>
+                {
+                    Succeeded = false,
+                    Message = "Failed to find school."
+                };
             }
 
             var schoolExists = await _context.School.AnyAsync(s => s.Name == schoolUpdateDto.Name);

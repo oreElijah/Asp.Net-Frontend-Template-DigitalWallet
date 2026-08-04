@@ -6,7 +6,6 @@ using Microsoft.Extensions.Logging;
 
 namespace DigitalWalletInfrastructure.Services
 {
-
     public class AuditService : IAuditService
     {
         private readonly ApplicationDbContext _context;
@@ -17,8 +16,11 @@ namespace DigitalWalletInfrastructure.Services
             _context = context;
             _logger = logger;
         }
-        public async Task RecordAsync(string action, string entityType, string entityId, string? actorUserId = null, string? details = null, CancellationToken cancellationToken = default)
+
+        public Task RecordAsync(string action, string entityType, string entityId, string? actorUserId = null, object? details = null, CancellationToken cancellationToken = default)
         {
+            var detailsJson = details is null ? "{}" : JsonSerializer.Serialize(details);
+
             _context.AuditLog.Add(new AuditLog
             {
                 Id = Guid.NewGuid(),
@@ -26,11 +28,17 @@ namespace DigitalWalletInfrastructure.Services
                 Action = action,
                 EntityType = entityType,
                 EntityId = entityId,
-                Details = string.IsNullOrWhiteSpace(details) ? "{}" : details,
+                Details = detailsJson,
                 CreatedAt = DateTime.UtcNow
             });
-            await _context.SaveChangesAsync(cancellationToken);
-            _logger.LogInformation("Audit event {Action} recorded for {EntityType} {EntityId}", action, entityType, entityId);
+
+            // Deliberately no SaveChangesAsync here. The caller commits this
+            // together with the business change it's describing, in one
+            // SaveChangesAsync — so the audit row and the change it records
+            // can never exist independently of each other.
+            _logger.LogInformation("Audit event {Action} queued for {EntityType} {EntityId}", action, entityType, entityId);
+
+            return Task.CompletedTask;
         }
     }
 }
