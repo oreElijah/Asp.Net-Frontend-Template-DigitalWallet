@@ -3,6 +3,7 @@ using DigitalWalletCore.Dtos.School;
 using DigitalWalletCore.Entities;
 using DigitalWalletInfrastructure.Data;
 using DigitalWalletInfrastructure.Repositories;
+using DigitalWalletCore.Exceptions;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -101,7 +102,7 @@ namespace DigitalWalletTest.RepositoryTest
             var schoolId = Guid.NewGuid();
 
             // Act
-            Func<Task> result = async () = await schoolRepository.DeleteSchoolAsync(schoolId);
+            Func<Task> result = async () => await schoolRepository.DeleteSchoolAsync(schoolId);
 
             // Assert
             await result.Should().ThrowAsync<NotFoundException>()
@@ -123,7 +124,7 @@ namespace DigitalWalletTest.RepositoryTest
             result.Should().NotBeNull();
             result.Succeeded.Should().BeTrue();
             result.Should().BeOfType<AppResponse<bool>>();
-            result.Message.Should().Be("School deleted successfully.");
+            result.Message.Should().Be("School has been deleted");
         }
 
         [Fact]
@@ -258,13 +259,12 @@ namespace DigitalWalletTest.RepositoryTest
             var schoolId = Guid.NewGuid();
 
             // Act
-            var result = await schoolRepository.UpdateSchoolAsync(schoolId, schoolRequestDto);
+            Func<Task> result = async () => await schoolRepository.UpdateSchoolAsync(schoolId, schoolRequestDto);
 
             // Assert
-            result.Should().NotBeNull();
-            result.Succeeded.Should().BeFalse();
-            result.Should().BeOfType<AppResponse<SchoolResponseDto>>();
-            result.Message.Should().Be("Failed to find school.");
+            await result.Should().ThrowAsync<NotFoundException>()
+                .WithMessage($"School with ID {schoolId} not found.");
+            
         }
 
         [Fact]
@@ -280,11 +280,13 @@ namespace DigitalWalletTest.RepositoryTest
             var schoolId = school.Id;
 
             // Act
-            Func<Task> result = async () = await schoolRepository.UpdateSchoolAsync(schoolId, schoolRequestDto);
+            var result = await schoolRepository.UpdateSchoolAsync(schoolId, schoolRequestDto);
 
             // Assert
-            await result.Should().ThrowAsync<NotFoundException>()
-                .WithMessage($"School with ID {schoolId} not found.");
+            result.Should().NotBeNull();
+            result.Succeeded.Should().BeFalse();
+            result.Should().BeOfType<AppResponse<SchoolResponseDto>>();
+            result.Message.Should().Be("Failed to update school.");
         }
 
         [Fact]

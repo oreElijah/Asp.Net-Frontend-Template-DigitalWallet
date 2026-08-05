@@ -198,7 +198,7 @@ namespace DigitalWalletInfrastructure.Repositories
             if (school == null)
             {
                 _logger.LogWarning($"School with ID {schoolId} does not exist.");
-                throw new NotFoundException("School with ID {schoolId} not found.");
+                throw new NotFoundException($"School with ID {schoolId} not found.");
             }
 
             _logger.LogInformation($"School with ID {schoolId} exists.");

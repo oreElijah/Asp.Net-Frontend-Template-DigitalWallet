@@ -34,8 +34,11 @@ namespace DigitalWalletInfrastructure.Mapper
                 Id = transaction.Id,
                 Amount = transaction.Amount,
                 Reference = transaction.Reference,
-                ReceiverWalletName = receiverWallet?.User.FirstName + " " + transaction.ReceiverWallet?.User.LastName,
-                SenderWalletName = senderWallet?.User.FirstName + " " + transaction.SenderWallet?.User.LastName,
+                ReceiverWalletName =
+    $"{transaction.ReceiverWallet?.User?.FirstName} {transaction.ReceiverWallet?.User?.LastName}".Trim(),
+
+                SenderWalletName =
+    $"{transaction.SenderWallet?.User?.FirstName} {transaction.SenderWallet?.User?.LastName}".Trim(),
                 Type = transaction.Type,
                 Status = transaction.Status,
                 SenderWalletNumber = transaction.SenderWalletNumber,

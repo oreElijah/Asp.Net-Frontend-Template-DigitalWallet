@@ -67,7 +67,7 @@ namespace DigitalWalletInfrastructure.Repositories
                     Message = "Wallet is locked."
                 };
             }
-
+                        
             _logger.LogInformation("Creating transaction for deposit of amount {Amount} to wallet {WalletNumber} and adding it to the database", depositDto.Amount, wallet.WalletNumber);
             // Create a new transaction
             var transaction = depositDto.ToTransactionFromDeposit(wallet.WalletNumber, TransactionStatus.Pending, "", wallet.Id);
@@ -79,7 +79,7 @@ namespace DigitalWalletInfrastructure.Repositories
             _logger.LogInformation("Initializing deposit with payment service for transaction ID {TransactionId} and wallet number {WalletNumber}", transaction.Id, wallet.WalletNumber);
             var paymentResponse = await _paymentService.InitializeDepositAsync(transaction.Id, wallet.WalletNumber);
 
-            if (!paymentResponse.Succeeded)
+            if (paymentResponse.Succeeded==false)
             {
                 _logger.LogWarning("Failed to initialize deposit for transaction ID {TransactionId} and wallet number {WalletNumber}", transaction.Id, wallet.WalletNumber);
                 transaction.Status = TransactionStatus.Failed;
