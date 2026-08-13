@@ -34,4 +34,6 @@ app.UseHttpsRedirection();
 app.UsePresentation();
 await app.SeedDatabaseAsync();
 
+app.MapGet("/", () => "Campus Pay API is running...");
+
 await app.RunAsync();
