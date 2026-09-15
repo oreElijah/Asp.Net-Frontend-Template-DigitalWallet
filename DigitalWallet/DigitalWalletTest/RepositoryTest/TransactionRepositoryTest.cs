@@ -8,6 +8,7 @@ using DigitalWalletInfrastructure.Data;
 using DigitalWalletInfrastructure.Repositories;
 using FluentAssertions;
 using Microsoft.AspNet.Identity;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -15,6 +16,8 @@ using Moq;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.IO;
+using DigitalWalletCore.Dtos.Merchant;
 
 namespace DigitalWalletTest.RepositoryTest
 {
@@ -48,6 +51,17 @@ namespace DigitalWalletTest.RepositoryTest
             );
         }
 
+        private IFormFile CreateFormFile(byte[] data, string fileName = "barcode.png", string contentType = "image/png")
+        {
+            var ms = new MemoryStream(data);
+            ms.Position = 0;
+            return new FormFile(ms, 0, ms.Length, "BarCode", fileName)
+            {
+                Headers = new HeaderDictionary(),
+                ContentType = contentType
+            };
+        }
+
         private async Task<ApplicationDbContext> GetDbContext()
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
@@ -74,6 +88,20 @@ namespace DigitalWalletTest.RepositoryTest
                         ReceiverBalanceBefore = 200.00m,
                         ReceiverBalanceAfter = 300.00m,
                         CreatedAt = DateTime.UtcNow
+                    }, new Transaction
+                    {
+                        Reference = "TXN002",
+                        Amount = 50.00m,
+                        Description = "Test Transaction 2",
+                        Type = TransactionType.Deposit,
+                        Status = TransactionStatus.Pending,
+                        SenderWalletNumber = "STU0001",
+                        SenderBalanceBefore = 300.00m,
+                        SenderBalanceAfter = 250.00m,                       
+                        ReceiverWalletNumber = "WALLET004",
+                        ReceiverBalanceBefore = 100.00m,
+                        ReceiverBalanceAfter = 150.00m,
+                        CreatedAt = DateTime.UtcNow
                     },
                     new Transaction
                     {
@@ -87,9 +115,9 @@ namespace DigitalWalletTest.RepositoryTest
                         SenderBalanceAfter = 250.00m,
                         SenderWallet = new Wallet
                         {
-                            Id = Guid.NewGuid(),
-                            UserId = "user5678",
-                            WalletNumber = "WALLET003",
+                            Id = Guid.Parse("12345678-1234-1234-1234-123456789012"),
+                            UserId = "user1234",
+                            WalletNumber = "STU0001",
                             Balance = 250.00m,
                             IsLocked = false,
                             User = new AppUser
@@ -137,7 +165,7 @@ namespace DigitalWalletTest.RepositoryTest
         {
             return new Wallet
             {
-                Id = Guid.NewGuid(),
+                Id = Guid.Parse("12345678-1234-1234-1234-123456789012"),
                 UserId = "user1234",
                 WalletNumber = "STU0001",
                 Balance = balance,
@@ -151,7 +179,58 @@ namespace DigitalWalletTest.RepositoryTest
                     LastName = "User",
                     SchoolCode = "SCH001",
                     CreatedAt = DateTime.UtcNow
-                }
+                },
+                SentTransactions = new List<Transaction> { new Transaction
+                    {
+                        Reference = "TXN002",
+                        Amount = 50.00m,
+                        Description = "Test Transaction 2",
+                        Type = TransactionType.Deposit,
+                        Status = TransactionStatus.Pending,
+                        SenderWalletNumber = "WALLET003",
+                        SenderBalanceBefore = 300.00m,
+                        SenderBalanceAfter = 250.00m,
+                        SenderWallet = new Wallet
+                        {
+                            Id = Guid.Parse("12345678-1234-1234-1234-123456789012"),
+                            UserId = "user1234",
+                            WalletNumber = "STU0001",
+                            Balance = 250.00m,
+                            IsLocked = false,
+                            User = new AppUser
+                            {
+                                Id = "user5699",
+                                UserName = "Senderuser",
+                                Email = "test2@example.com",
+                                FirstName = "Sender",
+                                LastName = "User",
+                                SchoolCode = "SCH001",
+                                CreatedAt = DateTime.UtcNow
+                            }
+                        },
+                        ReceiverWallet = new Wallet
+                        {
+                            Id = Guid.NewGuid(),
+                            UserId = "user5679",
+                            WalletNumber = "WALLET004",
+                            Balance = 150.00m,
+                            IsLocked = false,
+                            User = new AppUser
+                            {
+                                Id = "user5679",
+                                UserName = "receiveruser",
+                                Email = "test@example.com",
+                                FirstName = "Receiver",
+                                LastName = "User",
+                                SchoolCode = "SCH001",
+                                CreatedAt = DateTime.UtcNow
+                            }
+                        },
+                        ReceiverWalletNumber = "WALLET004",
+                        ReceiverBalanceBefore = 100.00m,
+                        ReceiverBalanceAfter = 150.00m,
+                        CreatedAt = DateTime.UtcNow
+                    }}
             };
         }
 
@@ -264,15 +343,15 @@ namespace DigitalWalletTest.RepositoryTest
 
             _context.Wallet.Add(wallet);
 
-            await _context.SaveChangesAsync();                     
-                        
+            await _context.SaveChangesAsync();
+
             _paymentServiceMock
                 .Setup(x => x.InitializeDepositAsync(It.IsAny<Guid>(), wallet.WalletNumber))
                 .ReturnsAsync(new AppResponse<InitializePaymentResponseDto>
                 {
                     Succeeded = true,
                     Data = new InitializePaymentResponseDto
-                    { 
+                    {
                         AuthorizationUrl = "https://paymentgateway.com/authorize",
                         Reference = "PAYMENT_REF_12345"
                     },
@@ -296,7 +375,96 @@ namespace DigitalWalletTest.RepositoryTest
             result.Data.PaymentUrl.Should().Be("https://paymentgateway.com/authorize");
         }
 
-        //[Fact]
-        //public async Task TransactionRepository_GetTransansactionsByWalletIdAsync_Return
+        [Fact]
+        public async Task TransactionRepository_GetTransansactionsByWalletIdAsync_ReturnAppResponseWithMessageWalletNotFound()
+        {
+            // Arrange
+            var walletId = Guid.NewGuid();
+            var userId = "user123";
+
+            // Act
+            var result = await _repository.GetTransactionsByWalletIdAsync(walletId, userId);
+            
+            // Assert
+            result.Should().NotBeNull();
+            result.Succeeded.Should().BeFalse();
+            result.Message.Should().Be("Wallet not found.");
+        }
+
+        [Fact]
+        public async Task TransactionRepository_GetTransansactionsByWalletIdAsync_ReturnAppResponseWithMessageTransactionsRetrieved()
+        {
+            // Arrange
+            var walletId = Guid.Parse("12345678-1234-1234-1234-123456789012");
+            var userId = "STU0001";
+/*
+            _context.Wallet.Add(wallet);
+            await _context.SaveChangesAsync();*/
+
+            // Act
+            var result = await _repository.GetTransactionsByWalletIdAsync(walletId, userId);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Succeeded.Should().BeTrue();
+            result.Message.Should().Be("Transactions retrieved successfully.");
+        }
+
+        [Fact]
+        public async Task TransactionRepository_ScanToChargeWallerAsync_ShouldReturnInvalidAmountResponse()
+        {
+            // Arrange
+            var userId = "user123";
+            var barcodeScanDto = new BarcodeScanDto
+            {
+                BarCode = CreateFormFile(new byte[0]) // Simulate an invalid barcode scan
+            };
+
+            //Act
+            var result = await _repository.ScanToChargeWalletAsync(barcodeScanDto, 0, userId, string.Empty);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Succeeded.Should().BeFalse();
+            result.Message.Should().Be("Amount must be positive, have at most two decimal places, and not exceed 1,000,000.");
+        }
+
+        [Fact]
+        public async Task TransactionRepository_ScanToChargeWallerAsync_ShouldReturnInvalidBarcodeResponse()
+        {
+            // Arrange
+            var userId = "user123";
+            var barcodeScanDto = new BarcodeScanDto
+            {
+                BarCode = null // Simulate an invalid barcode scan
+            };
+
+            //Act
+            var result = await _repository.ScanToChargeWalletAsync(barcodeScanDto, 100, userId, string.Empty);
+            
+            // Assert
+            result.Should().NotBeNull();
+            result.Succeeded.Should().BeFalse();
+            result.Message.Should().Be("No barcode image file was uploaded");
+        }
+
+        [Fact]
+        public async Task TransactionRepository_ScanToChargeWallerAsync_ShouldReturnAppResponseWithMessageWalletNotFound()
+        {
+            // Arrange
+            var userId = "userFail";
+            var barcodeScanDto = new BarcodeScanDto
+            {
+                BarCode = CreateFormFile(new byte[0]) // Simulate a barcode scan
+            };
+
+            //Act
+            var result = await _repository.ScanToChargeWalletAsync(barcodeScanDto, 100, userId, string.Empty);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Succeeded.Should().BeFalse();
+            result.Message.Should().Be("Either sender or receiver wallet not found.");
+        }
     }
 }

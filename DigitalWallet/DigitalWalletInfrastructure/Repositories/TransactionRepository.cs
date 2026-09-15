@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using Hangfire;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Data.Common;
 using System.Text;
 using System.Data;
@@ -112,9 +113,13 @@ namespace DigitalWalletInfrastructure.Repositories
         public async Task<AppResponse<List<TransactionDto>>> GetTransactionsByWalletIdAsync(Guid walletId, string userId)
         {
             _logger.LogInformation("Fetching transactions for wallet ID {WalletId} and user {UserId}", walletId, userId);
-            var wallet = await _walletService.GetWalletDetailsById(walletId, userId);
+            var wallet = await _context.Wallet
+            .Include(w => w.User)
+            .Include(w => w.SentTransactions)
+            .Include(w => w.ReceivedTransactions)
+            .FirstOrDefaultAsync(w => w.Id == walletId);
 
-            if (wallet.Data == null)
+            if (wallet == null)
             {
                 _logger.LogWarning("Wallet not found for user {UserId} and wallet ID {WalletId}", userId, walletId);
                 return new AppResponse<List<TransactionDto>>
@@ -123,20 +128,20 @@ namespace DigitalWalletInfrastructure.Repositories
                     Message = "Wallet not found."
                 };
             }
-            
-            _logger.LogInformation("Wallet found for user {UserId}: {WalletNumber}", userId, wallet.Data.WalletNumber);
+
+            _logger.LogInformation("Wallet found for user {UserId}: {WalletNumber}", userId, wallet.WalletNumber);
 
             _logger.LogInformation("Retrieving sent and received transactions for wallet ID {WalletId}", walletId);
-            var sentTransactions = wallet.Data.SentTransactions;
-            var receivedTransactions = wallet.Data.ReceivedTransactions;
+            var sentTransactions = wallet.SentTransactions;
+            var receivedTransactions = wallet.ReceivedTransactions;
 
             _logger.LogInformation("Combining sent and received transactions for wallet ID {WalletId}", walletId);
             var allTransactions = new List<TransactionDto>();
-            allTransactions.AddRange(sentTransactions);
-            allTransactions.AddRange(receivedTransactions);
-            allTransactions = allTransactions
-            .OrderByDescending(t => t.CreatedAt)
-            .ToList();
+            if (sentTransactions != null && sentTransactions.Any())
+                allTransactions.AddRange(sentTransactions.ToTransactionResponseDtoList());
+            if (receivedTransactions != null && receivedTransactions.Any())
+                allTransactions.AddRange(receivedTransactions.ToTransactionResponseDtoList());
+            allTransactions = allTransactions.OrderByDescending(t => t.CreatedAt).ToList();
 
             _logger.LogInformation("Returning combined transactions for wallet ID {WalletId} and user {UserId} in a descending order by creation date", walletId, userId);
             return new AppResponse<List<TransactionDto>>
