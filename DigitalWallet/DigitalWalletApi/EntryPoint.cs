@@ -29,7 +29,7 @@ namespace DigitalWalletApi
                 options.AddPolicy("AllowFrontend",
                     policy =>
                     {
-                        policy.WithOrigins(config["FrontendUrl"])
+                        policy.WithOrigins(configuration["FrontendUrl"]    )
                               .AllowAnyHeader()
                               .AllowAnyMethod();
                     });
